@@ -6,3 +6,20 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend:/app
+  backend:
+    build: ./backend
+    container_name: "cardgame-backend"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+  db:
+    image: mongo
+    ports:
+      - "27017:27017"
+    container_name: "cardgame-db"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongodb
+      MONGO_INITDB_ROOT_PASSWORD: mongodb
