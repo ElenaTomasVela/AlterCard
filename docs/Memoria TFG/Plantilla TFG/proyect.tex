@@ -1,0 +1,56 @@
+% !TEX encoding = UTF-8 Unicode
+\documentclass{pclass}
+\usepackage[utf8]{inputenc} % para linux y mac 
+%\usepackage[latin1]{inputenc} % para windows
+  
+
+%DIFERENTES TIPOS DE LETRA
+%\usepackage{palatino}
+\usepackage{times}   
+
+
+\begin{document}
+\tipo{Grado}   % Grado o M\'aster
+\titulopro{AlterUno}
+\tutor{Jos\'e Antonio Parejo Maestre}
+\departamento{Comisi\'on de Trabajos fin de Grado de la E.T.S.I.I.}
+%\autores{Nombre 1}{Nombre 2}  % Dos autores
+\autores{Elena Tom\'as Vela}{{\ }}   % Un autor
+\dia{1 de marzo de 2017 (v.0.91)}
+\titulacion{GIS}
+
+\hacerportada
+
+	\input{tocdef}
+\frontmatter
+        
+    \input{resumen}
+    \input{agradecimientos}	
+
+	\tableofcontents % Índice de contenidos
+ 	\listoftables % Índice de cuadros
+ 	\listoffigures % Índice de figuras
+ 	\lstlistoflistings %Índice de códigos
+
+ \mainmatter  
+    
+     \input{Secciones/capitulo1}
+     \input{Secciones/capitulo2}
+    \input{Secciones/defobjetivos}
+    \input{Secciones/requisitos}
+    \input{Secciones/analanteced}
+    \input{Secciones/analtemporal}
+    \input{Secciones/alternativas}
+    \input{Secciones/pruebas}
+    \input{Secciones/manual}
+
+\backmatter
+
+\input{Secciones/apendices}
+\bibliographystyle{sousa5}
+
+\bibliographystyle{apacite}
+
+\bibliography{pfcbib}
+
+\end{document}
