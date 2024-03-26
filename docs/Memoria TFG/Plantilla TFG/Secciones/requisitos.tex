@@ -489,7 +489,41 @@ así como otras funcionalidades como la ejecución de tests.
 
 Como framework, se hará uso de Elysia como framework de Backend, ya que está intencionado para su uso con Bun. 
 
-\subparagraph{Documentación de la API}
+\paragraph{Documentación de la API:}
+
+La API del servidor se documentará con las especificaciones de OpenAPI para las rutas normales y AsyncAPI para las rutas con WebSockets.
+La estructura consistirá de las siguintes rutas:
+
+\subparagraph{Rutas de la API REST:}
+
+\begin{itemize}
+  \item /user
+    \begin{description}
+      \item[POST:] Registra un nuevo usuario
+        \begin{description}
+          \item[username:] Nombre de usuario
+          \item[password:] Contraseña
+        \end{description}
+    \end{description}
+    \begin{itemize}
+      \item /login
+        \begin{description}
+          \item[POST:] Inicia sesión del usuario
+            \begin{description}
+              \item[username:] Nombre de usuario
+              \item[password:] Contraseña
+            \end{description}
+        \end{description}
+    \end{itemize}
+  \item /room
+      \begin{description}
+      \item[POST:] Crea una sala de espera nueva asociada al usuario actual
+      \end{description}
+\end{itemize}
+\subparagraph{Rutas de la API WebSockets:}
+\begin{itemize}
+  \item Test
+\end{itemize}
 
 \subsubsection{Capa de presentación}
 
