@@ -47,6 +47,8 @@
 \usepackage{multicol}%insertar tablas
 \usepackage{color}%definir colores
 
+\usepackage{caption}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%para c{\'o}digo fuente%%%%%%%%%%%%%%%%%%%%%
 \usepackage{listings}
 % Definiendo colores para los listados de c{\'o}digo fuente
