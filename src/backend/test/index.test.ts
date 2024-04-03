@@ -44,10 +44,37 @@ describe("Database", () => {
 });
 
 describe("Authentication", () => {
-  test("Correct log-in", async () => {});
+  test("Correct log-in", async () => {
+    const user = {
+      username: "user",
+      password: "password",
+    };
+    await api.user.index.post(user);
+
+    const { status } = await api.user.login.post(user);
+
+    expect(status).toBe(200);
+  });
   test("Incorrect log-in", async () => {});
 
-  test("Correct sign-up", async () => {});
+  test("Correct sign-up", async () => {
+    const user = {
+      username: "testuser2",
+      password: "testpassword",
+    };
+
+    const currentUsers = await User.find();
+    const nUsers = currentUsers.length;
+
+    const { data, status } = await api.user.index.post(user);
+
+    const newUsers = await User.find();
+    const nNewUsers = newUsers.length;
+
+    expect(status).toBe(200);
+    expect(nNewUsers).toBe(nUsers + 1);
+  });
+
   test("Incorrect log-in", async () => {});
 
   test("Correct log-out", async () => {});
