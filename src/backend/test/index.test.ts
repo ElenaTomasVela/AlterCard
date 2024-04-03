@@ -1,8 +1,47 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { app } from "../src";
 import { treaty } from "@elysiajs/eden";
+import mongoose from "mongoose";
+import { User } from "../src/models/user";
 
 const api = treaty(app);
+
+beforeAll(() => {
+  mongoose.connection.on("open", () => {
+    mongoose.connection.dropDatabase();
+  });
+});
+
+describe("Database", () => {
+  describe("User", () => {
+    test("Create User", async () => {
+      const user = new User({
+        username: "testuser",
+        password: "testpassword",
+      });
+      const currentUsers = await User.find();
+      const nUsers = currentUsers.length;
+
+      await user.save();
+
+      const newUsers = await User.find();
+      const nNewUsers = newUsers.length;
+
+      expect(nNewUsers).toBe(nUsers + 1);
+    });
+    test("Delete User", async () => {
+      const currentUsers = await User.find();
+      const nUsers = currentUsers.length;
+
+      await User.deleteOne();
+
+      const newUsers = await User.find();
+      const nNewUsers = newUsers.length;
+
+      expect(nNewUsers).toBe(nUsers - 1);
+    });
+  });
+});
 
 describe("Authentication", () => {
   test("Correct log-in", async () => {});
