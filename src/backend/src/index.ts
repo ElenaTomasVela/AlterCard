@@ -4,19 +4,18 @@ import { Elysia, t } from "elysia";
 import mongoose from "mongoose";
 import { User, tUser } from "./models/user";
 
-mongoose
-  .connect(
-    `mongodb://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_URL}/${process.env.DB_NAME}?authSource=admin&w=1`,
-  )
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((e) => console.log(e));
-
-// Typescript needs to know that the env variable is defined
+// Typescript needs to know that the env variables are defined
 declare module "bun" {
   interface Env {
     JWT_SECRET: string;
+    DB_URL: string;
   }
 }
+
+mongoose
+  .connect(process.env.DB_URL)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((e) => console.log(e));
 
 export const app = new Elysia()
   .use(tUser)
