@@ -26,3 +26,5 @@ const WaitingRoomSchema = new mongoose.Schema({
     ref: "CardDeck",
   },
 });
+
+export const WaitingRoom = mongoose.model("WaitingRoom", WaitingRoomSchema);
