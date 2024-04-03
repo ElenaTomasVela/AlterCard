@@ -46,7 +46,7 @@ describe("Database", () => {
 describe("Authentication", () => {
   test("Correct log-in", async () => {
     const user = {
-      username: "user",
+      username: "loggingInUser",
       password: "password",
     };
     await api.user.index.post(user);
@@ -66,7 +66,7 @@ describe("Authentication", () => {
     const currentUsers = await User.find();
     const nUsers = currentUsers.length;
 
-    const { data, status } = await api.user.index.post(user);
+    const { status } = await api.user.index.post(user);
 
     const newUsers = await User.find();
     const nNewUsers = newUsers.length;
