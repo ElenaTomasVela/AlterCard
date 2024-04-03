@@ -3,7 +3,8 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "populate": "bun run src/populate.ts"
   },
   "dependencies": {
     "@elysiajs/eden": "^1.0.7",
@@ -17,3 +18,4 @@
   },
   "module": "src/index.js"
 }
+
