@@ -26,7 +26,14 @@ const GameSchema = new mongoose.Schema({
     message: (props: mongoose.ValidatorProps) =>
       `${props.value} has duplicate values`,
   },
-  players: [PlayerSchema],
+  players: {
+    type: [PlayerSchema],
+    validate: {
+      validator: (v: Array<any>) => v.length >= 2 && v.length <= 30,
+      message: (props: mongoose.ValidatorProps) =>
+        `Player count should be between 2 and 30, is ${props.value.length}`,
+    },
+  },
   discardPile: [
     {
       type: mongoose.Schema.Types.ObjectId,

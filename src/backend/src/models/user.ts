@@ -19,10 +19,12 @@ const UserSchema = new mongoose.Schema<IUser>({
     required: true,
     unique: true,
     index: true,
+    maxlength: 50,
   },
   password: {
     type: String,
     required: true,
+    maxlength: 100,
   },
 });
 
