@@ -15,6 +15,9 @@ services:
       - ./backend:/app
     depends_on:
       - db
+    env_file:
+      - path: ./backend/.env.docker
+
   db:
     image: mongo
     ports:
