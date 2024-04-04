@@ -7,7 +7,7 @@ Bun, React and Elysia.
 
 ## Locally
 
-Before anything else, make sure you have (Bun)[https://bun.sh/] installed.
+Before anything else, make sure you have [Bun](https://bun.sh/) installed.
 
 ### Backend
 
