@@ -5,11 +5,28 @@ import mongoose from "mongoose";
 import { User } from "../src/models/user";
 
 const api = treaty(app);
+const users = [
+  {
+    username: "todelete",
+    password: "todelete",
+  },
+  {
+    username: "user1",
+    password: "password1",
+  },
+  {
+    username: "user2",
+    password: "password2",
+  },
+  {
+    username: "user3",
+    password: "password3",
+  },
+];
 
-beforeAll(() => {
-  mongoose.connection.on("open", () => {
-    mongoose.connection.dropDatabase();
-  });
+beforeAll(async () => {
+  await mongoose.connection.dropDatabase();
+  await User.insertMany(users);
 });
 
 describe("Database", () => {
@@ -45,17 +62,24 @@ describe("Database", () => {
 
 describe("Authentication", () => {
   test("Correct log-in", async () => {
-    const user = {
-      username: "loggingInUser",
-      password: "password",
-    };
-    await api.user.index.post(user);
-
-    const { status } = await api.user.login.post(user);
+    const { status } = await api.user.login.post(users[1]);
 
     expect(status).toBe(200);
   });
-  test("Incorrect log-in", async () => {});
+  test.each([
+    {
+      username: "wronguser",
+      password: "wrongpassword",
+    },
+    {
+      username: "user1",
+      password: "wrongpassword",
+    },
+  ])("Incorrect log-in", async (user) => {
+    const { status } = await api.user.login.post(user);
+
+    expect(status).toBe(400);
+  });
 
   test("Correct sign-up", async () => {
     const user = {
@@ -75,63 +99,76 @@ describe("Authentication", () => {
     expect(nNewUsers).toBe(nUsers + 1);
   });
 
-  test("Incorrect log-in", async () => {});
-
-  test("Correct log-out", async () => {});
-  test("Incorrect log-out", async () => {});
+  test("Incorrect sign-up", async () => {});
 });
 
 describe("Room", () => {
-  test("Authenticated room creation", async () => {});
-  test("Unauthenticated room creation", async () => {});
+  test("Authenticated room creation", async () => {
+    const { data: token, status: loginStatus } = await api.user.login.post(
+      users[1],
+    );
 
-  test("Authenticated room join", async () => {});
-  test("Unauthenticated room join", async () => {});
-  test("Incorrect room join", async () => {});
+    const { status } = await api.room.index.post(
+      {},
+      { headers: { authorization: `Bearer ${token}` } },
+    );
 
-  test("Player ready", async () => {});
-  test("Player not ready", async () => {});
+    expect(loginStatus).toBe(200);
+    expect(status).toBe(200);
+  });
+  test("Unauthenticated room creation", async () => {
+    const { status } = await api.room.index.post({});
 
-  test("Correct game start", async () => {});
-  test("Incorrect game start, not ready", async () => {});
-  test("Incorrect game start, no players", async () => {});
-  test("Incorrect game start, wrong host", async () => {});
+    expect(status).toBe(401);
+  });
 
-  test("User exit", async () => {});
-  test("Host exit", async () => {});
-  test("All users exit", async () => {});
+  test.skip("Authenticated room join", async () => {});
+  test.skip("Unauthenticated room join", async () => {});
+  test.skip("Incorrect room join", async () => {});
 
-  test("House rule toggle", async () => {});
-  test("Game start with house rule", async () => {});
+  test.skip("Player ready", async () => {});
+  test.skip("Player not ready", async () => {});
+
+  test.skip("Correct game start", async () => {});
+  test.skip("Incorrect game start, not ready", async () => {});
+  test.skip("Incorrect game start, no players", async () => {});
+  test.skip("Incorrect game start, wrong host", async () => {});
+
+  test.skip("User exit", async () => {});
+  test.skip("Host exit", async () => {});
+  test.skip("All users exit", async () => {});
+
+  test.skip("House rule toggle", async () => {});
+  test.skip("Game start with house rule", async () => {});
 });
 
 describe("Game", () => {
-  test("Correct card distribution", async () => {});
-  test("Draw when starting turn", async () => {});
-  test("Game end when 1 player remaining", async () => {});
+  test.skip("Correct card distribution", async () => {});
+  test.skip("Draw when starting turn", async () => {});
+  test.skip("Game end when 1 player remaining", async () => {});
 
-  test("Correct play", async () => {});
-  test("Wrong play, unplayable card", async () => {});
-  test("Wrong play, out of turn", async () => {});
+  test.skip("Correct play", async () => {});
+  test.skip("Wrong play, unplayable card", async () => {});
+  test.skip("Wrong play, out of turn", async () => {});
 
-  test("Choose color after playing wildcard", async () => {});
-  test("Invalid action after playing wildcard", async () => {});
+  test.skip("Choose color after playing wildcard", async () => {});
+  test.skip("Invalid action after playing wildcard", async () => {});
 
-  test("Draw card", async () => {});
-  test("Pass on second draw", async () => {});
-  test("Play drawn card", async () => {});
+  test.skip("Draw card", async () => {});
+  test.skip("Pass on second draw", async () => {});
+  test.skip("Play drawn card", async () => {});
 
-  test("Draw 2 effect", async () => {});
-  test("Skip turn effect", async () => {});
-  test("Draw 4 effect", async () => {});
-  test("Flip turn order effect", async () => {});
+  test.skip("Draw 2 effect", async () => {});
+  test.skip("Skip turn effect", async () => {});
+  test.skip("Draw 4 effect", async () => {});
+  test.skip("Flip turn order effect", async () => {});
 
-  test("Announce last card correctly", async () => {});
-  test("Announce last card when having more cards", async () => {});
+  test.skip("Announce last card correctly", async () => {});
+  test.skip("Announce last card when having more cards", async () => {});
 
-  test("Correct no announcement accusation", async () => {});
-  test("Incorrect no announcement accusation", async () => {});
+  test.skip("Correct no announcement accusation", async () => {});
+  test.skip("Incorrect no announcement accusation", async () => {});
 
-  test("Correct draw 4 accusation", async () => {});
-  test("Incorrect draw 4 accusation", async () => {});
+  test.skip("Correct draw 4 accusation", async () => {});
+  test.skip("Incorrect draw 4 accusation", async () => {});
 });

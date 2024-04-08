@@ -1,5 +1,6 @@
 import { jwt } from "@elysiajs/jwt";
 import swagger from "@elysiajs/swagger";
+import { bearer } from "@elysiajs/bearer";
 import { Elysia, t } from "elysia";
 import mongoose from "mongoose";
 import { User, tUser } from "./models/user";
@@ -26,6 +27,7 @@ export const app = new Elysia()
       secret: process.env.JWT_SECRET,
     }),
   )
+  .use(bearer())
   .group("/user", (app) => {
     return app
       .post(
@@ -54,6 +56,27 @@ export const app = new Elysia()
         { body: "user" },
       );
   })
+  .guard(
+    {
+      async beforeHandle({ error, jwtauth, bearer }) {
+        const user = await jwtauth.verify(bearer);
+
+        if (!user) {
+          return error(401, "Unauthorized");
+        }
+      },
+    },
+    (app) =>
+      app.group("/room", (app) => {
+        return app
+          .post("/", async ({}) => {
+            return "Created new room";
+          })
+          .get("/:id", async ({ params: { id } }) => {
+            return "Joined room " + id;
+          });
+      }),
+  )
 
   .listen(3000);
 
