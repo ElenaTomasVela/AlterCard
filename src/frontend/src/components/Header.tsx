@@ -1,6 +1,6 @@
 import { NavLink } from "./NavLink";
 import { Link } from "./Link";
-import { Button } from "./Button";
+import { Button } from "./ui/button";
 
 export const Header = () => (
   <nav className="flex items-center justify-between border-b-2 py-4 px-10 sticky top-0 bg-white">

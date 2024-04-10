@@ -18,18 +18,18 @@ module.exports = {
     },
     extend: {
       colors: {
-        "accent-darkest": "#b64c00",
-        "accent-darker": "#ca5a00",
-        "accent-dark": "#f47c00",
-        accent: "#ff9800",
-        "accent-light": "#ffb406",
-        "accent-lighter": "#ffd305",
-        "primary-darkest": "#004778",
-        "primary-darker": "#0071ab",
-        "primary-dark": "#009bc5",
-        primary: "#00bcd4",
-        "primary-light": "#00d0ea",
-        "primary-lighter": "#00e8f7",
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          dark: "#f47c00",
+          darker: "#ca5a00",
+          darkest: "#b64c00",
+        },
+        primary: {
+          DEFAULT: "rgb(var(--primary) / <alpha-value>)",
+          dark: "#009bc5",
+          darker: "#0071ab",
+          darkest: "#004778",
+        },
       },
       keyframes: {
         "accordion-down": {
@@ -49,4 +49,3 @@ module.exports = {
   },
   plugins: [require("tailwindcss-animate")],
 };
-

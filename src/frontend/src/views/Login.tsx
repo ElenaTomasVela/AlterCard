@@ -5,13 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import React from "react";
 
-export const SignUp = () => {
+export const Login = () => {
   return (
     <div className="flex justify-around">
       <div className="text-center">Imagen</div>
       <Card className="shadow-md p-3">
         <CardHeader>
-          <CardTitle className="font-bold">Sign Up</CardTitle>
+          <CardTitle className="font-bold">Log in</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-6">
@@ -23,8 +23,8 @@ export const SignUp = () => {
               <Label htmlFor="password">Password</Label>
               <Input type="password" name="password" />
             </div>
-            <Button>Sign Up</Button>
-            <Link to="/login">Already have an account? Log in</Link>
+            <Button>Log In</Button>
+            <Link to="/signup">Don't have an account? Sign Up</Link>
           </form>
         </CardContent>
       </Card>
