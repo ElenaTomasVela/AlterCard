@@ -6,6 +6,8 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend:/app
+    depends_on:
+      - backend
   backend:
     build: ./backend
     container_name: "cardgame-backend"

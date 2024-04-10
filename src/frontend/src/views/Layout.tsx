@@ -6,11 +6,13 @@ import { AuthProvider } from "@/context/AuthContext";
 export const Layout = () => {
   return (
     <>
-      <Header />
       <AuthProvider>
-        <Container>
-          <Outlet />
-        </Container>
+        <>
+          <Header />
+          <Container>
+            <Outlet />
+          </Container>
+        </>
       </AuthProvider>
     </>
   );

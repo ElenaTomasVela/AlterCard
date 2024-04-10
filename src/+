@@ -14,21 +14,21 @@ export const AuthContext = createContext<AuthContextType | undefined>(
 );
 
 export const AuthProvider = ({ children }: { children: JSX.Element }) => {
-  const [user, setUser] = useState<string | undefined>();
+  const [user, setUser] = useState();
 
   const signup = async (userData: User) => {
     const response = await axios.post(`/api/user/`, userData);
     if (response.status == 200) {
-      localStorage.setItem("token", response.data);
-      setUser(userData.username);
+      localStorage.setItem("token", response.data.token);
+      setUser(response.data.user.username);
     }
   };
 
   const login = async (userData: User) => {
     const response = await axios.post(`/api/user/login`, userData);
     if (response.status == 200) {
-      localStorage.setItem("token", response.data);
-      setUser(userData.username);
+      // localStorage.setItem("token", response.data.token);
+      // setUser(response.data.user.username);
     }
   };
 
