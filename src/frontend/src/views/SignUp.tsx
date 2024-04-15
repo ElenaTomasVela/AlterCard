@@ -2,22 +2,37 @@ import { Link } from "@/components/Link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";
-import { User } from "@/lib/types";
-import axios from "axios";
-import React, { useContext } from "react";
+import { User, UserSchema } from "@/lib/types";
+import React, { useContext, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 export const SignUp = () => {
-  const { register, handleSubmit } = useForm<User>();
+  const form = useForm<User>({
+    resolver: zodResolver(UserSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
   const { signup } = useContext(AuthContext) as AuthContextType;
   const navigate = useNavigate();
+  const [error, setError] = useState(undefined);
 
   const onSubmit = (data: User) => {
-    signup(data);
-    navigate("/");
+    signup(data)
+      .then(() => navigate("/"))
+      .catch((e) => setError(e.response?.data || e.message));
   };
 
   return (
@@ -28,21 +43,44 @@ export const SignUp = () => {
           <CardTitle className="font-bold">Sign Up</CardTitle>
         </CardHeader>
         <CardContent>
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col gap-6"
-          >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="username">Username</Label>
-              <Input type="text" {...register("username")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input type="password" {...register("password")} />
-            </div>
-            <Button>Sign Up</Button>
-            <Link to="/login">Already have an account? Log in</Link>
-          </form>
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="flex flex-col gap-5"
+            >
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {error && <p className="text-red-500">{error}</p>}
+              <Button type="submit">Sign Up</Button>
+              <span className="text-sm">
+                Already have an account? <Link to="/login">Log In</Link>
+              </span>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
