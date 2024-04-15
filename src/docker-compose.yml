@@ -8,6 +8,8 @@ services:
       - ./frontend:/app
     depends_on:
       - backend
+    environment:
+      VITE_BACKEND_URL: http://localhost:3000
   backend:
     build: ./backend
     container_name: "cardgame-backend"
@@ -17,8 +19,15 @@ services:
       - ./backend:/app
     depends_on:
       - db
-    env_file:
-      - path: ./backend/.env.docker
+    # env_file:
+    #   - path: ./backend/.env.docker
+    environment:
+      DB_HOST: db:27017
+      DB_USER: mongodb
+      DB_PASSWORD: mongodb
+      DB_NAME: cardgame
+      DB_URL: mongodb://mongodb:mongodb@db:27017/cardgame?authSource=admin&w=1
+      JWT_SECRET: secret
 
   db:
     image: mongo

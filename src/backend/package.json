@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@elysiajs/bearer": "^1.0.2",
+    "@elysiajs/cors": "^1.0.2",
     "@elysiajs/eden": "^1.0.7",
     "@elysiajs/jwt": "^1.0.2",
     "@elysiajs/swagger": "^1.0.3",

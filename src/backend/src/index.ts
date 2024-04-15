@@ -4,6 +4,7 @@ import { bearer } from "@elysiajs/bearer";
 import { Elysia, t } from "elysia";
 import mongoose from "mongoose";
 import { User, tUser } from "./models/user";
+import cors from "@elysiajs/cors";
 
 // Typescript needs to know that the env variables are defined
 declare module "bun" {
@@ -27,7 +28,12 @@ export const app = new Elysia()
       secret: process.env.JWT_SECRET,
     }),
   )
+  .use(cors())
   .use(bearer())
+  .onError(({ code, error }) => {
+    console.log(error);
+    return new Response(error.toString());
+  })
   .group("/user", (app) => {
     return app
       .post(
@@ -45,6 +51,7 @@ export const app = new Elysia()
       .post(
         "/login",
         async ({ body, jwtauth, error }) => {
+          console.log("Logging in");
           const user = await User.findOne({ username: body.username });
           if (body.password == user?.password) {
             const token = await jwtauth.sign({ username: user.username });
@@ -77,7 +84,6 @@ export const app = new Elysia()
           });
       }),
   )
-
   .listen(3000);
 
 console.log(
