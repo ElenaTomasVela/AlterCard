@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const api = axios.create({
-  baseURL: "/api/",
+  baseURL: import.meta.env.VITE_BACKEND_URL,
   headers: {
     Authorization: `Bearer ${localStorage.getItem("token")}`,
     "Content-Type": "application/json",
