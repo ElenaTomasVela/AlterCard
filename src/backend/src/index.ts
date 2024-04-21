@@ -3,7 +3,7 @@ import swagger from "@elysiajs/swagger";
 import { bearer } from "@elysiajs/bearer";
 import { Elysia, t } from "elysia";
 import mongoose from "mongoose";
-import { User, tUser } from "./models/user";
+import { User, checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
 
 // Typescript needs to know that the env variables are defined
@@ -39,11 +39,10 @@ export const app = new Elysia()
       .post(
         "/",
         async ({ jwtauth, body }) => {
-          const user = new User(body);
+          const user = await encryptUser(body);
           await user.save();
 
           const token = await jwtauth.sign({ username: user.username });
-
           return token;
         },
         { body: "user" },
@@ -51,10 +50,10 @@ export const app = new Elysia()
       .post(
         "/login",
         async ({ body, jwtauth, error }) => {
-          console.log("Logging in");
-          const user = await User.findOne({ username: body.username });
-          if (body.password == user?.password) {
-            const token = await jwtauth.sign({ username: user.username });
+          const correctCredentials = await checkCredentials(body);
+
+          if (correctCredentials) {
+            const token = await jwtauth.sign({ username: body.username });
             return token;
           } else {
             return error(400, "Invalid credentials");

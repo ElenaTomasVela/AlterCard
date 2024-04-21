@@ -1,5 +1,6 @@
 import { t, Elysia } from "elysia";
 import mongoose from "mongoose";
+const bcrypt = require("bcrypt");
 
 export interface IUser {
   username: string;
@@ -29,3 +30,23 @@ const UserSchema = new mongoose.Schema<IUser>({
 });
 
 export const User = mongoose.model("User", UserSchema);
+
+export const encryptUser = async (user: IUser) => {
+  const encryptedPassword = await bcrypt.hash(user.password, 10);
+
+  const encryptedUser = new User({ ...user, password: encryptedPassword });
+
+  return encryptedUser;
+};
+
+export const checkCredentials = async (user: IUser) => {
+  const dbUser = await User.findOne({ username: user.username });
+  if (!dbUser) return false;
+
+  const isPasswordCorrect = await bcrypt.compare(
+    user.password,
+    dbUser?.password,
+  );
+
+  return isPasswordCorrect;
+};
