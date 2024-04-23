@@ -5,6 +5,7 @@ import { Elysia, t } from "elysia";
 import mongoose from "mongoose";
 import { User, checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
+import { WaitingRoom } from "./models/waitingRoom";
 
 // Typescript needs to know that the env variables are defined
 declare module "bun" {
@@ -26,6 +27,10 @@ export const app = new Elysia()
     jwt({
       name: "jwtauth",
       secret: process.env.JWT_SECRET,
+      schema: t.Object({
+        username: t.String(),
+        id: t.String(),
+      }),
     }),
   )
   .use(cors())
@@ -42,7 +47,10 @@ export const app = new Elysia()
           const user = await encryptUser(body);
           await user.save();
 
-          const token = await jwtauth.sign({ username: user.username });
+          const token = await jwtauth.sign({
+            username: user.username,
+            id: user.id,
+          });
           return token;
         },
         { body: "user" },
@@ -50,10 +58,13 @@ export const app = new Elysia()
       .post(
         "/login",
         async ({ body, jwtauth, error }) => {
-          const correctCredentials = await checkCredentials(body);
+          const userId = await checkCredentials(body);
 
-          if (correctCredentials) {
-            const token = await jwtauth.sign({ username: body.username });
+          if (userId) {
+            const token = await jwtauth.sign({
+              username: body.username,
+              id: userId,
+            });
             return token;
           } else {
             return error(400, "Invalid credentials");
@@ -64,7 +75,7 @@ export const app = new Elysia()
   })
   .guard(
     {
-      async beforeHandle({ error, jwtauth, bearer }) {
+      beforeHandle: async ({ error, jwtauth, bearer }) => {
         const user = await jwtauth.verify(bearer);
 
         if (!user) {
@@ -73,15 +84,28 @@ export const app = new Elysia()
       },
     },
     (app) =>
-      app.group("/room", (app) => {
-        return app
-          .post("/", async ({}) => {
-            return "Created new room";
-          })
-          .get("/:id", async ({ params: { id } }) => {
-            return "Joined room " + id;
-          });
-      }),
+      app
+        .resolve(async ({ jwtauth, bearer }) => {
+          const user = await jwtauth.verify(bearer);
+          if (!user) throw new Error("Unauthorized");
+
+          return { user };
+        })
+        .group("/room", (app) => {
+          return app
+            .post("/", async ({ user }) => {
+              const waitingRoom = new WaitingRoom({
+                host: user.id,
+                players: [user.id],
+              });
+              await waitingRoom.save();
+
+              return waitingRoom.id;
+            })
+            .get("/:id", async ({ params: { id } }) => {
+              return "Joined room " + id;
+            });
+        }),
   )
   .listen(3000);
 

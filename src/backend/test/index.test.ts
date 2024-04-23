@@ -3,6 +3,7 @@ import { app } from "../src";
 import { treaty } from "@elysiajs/eden";
 import mongoose from "mongoose";
 import { User, encryptUser } from "../src/models/user";
+import { WaitingRoom } from "../src/models/waitingRoom";
 
 const api = treaty(app);
 const users = [
@@ -125,13 +126,17 @@ describe("Room", () => {
       users[1],
     );
 
-    const { status } = await api.room.index.post(
+    const previousRoomCount = (await WaitingRoom.find()).length;
+    const { status, data: roomId } = await api.room.index.post(
       {},
       { headers: { authorization: `Bearer ${token}` } },
     );
+    const currentRoomCount = (await WaitingRoom.find()).length;
 
     expect(loginStatus).toBe(200);
     expect(status).toBe(200);
+    expect(roomId).toBeString;
+    expect(currentRoomCount).toBe(previousRoomCount + 1);
   });
   test("Unauthenticated room creation", async () => {
     const { status } = await api.room.index.post({});

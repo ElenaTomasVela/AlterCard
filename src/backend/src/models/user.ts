@@ -1,6 +1,6 @@
 import { t, Elysia } from "elysia";
 import mongoose from "mongoose";
-const bcrypt = require("bcrypt");
+import bcrypt from "bcrypt";
 
 export interface IUser {
   username: string;
@@ -48,5 +48,5 @@ export const checkCredentials = async (user: IUser) => {
     dbUser?.password,
   );
 
-  return isPasswordCorrect;
+  return isPasswordCorrect && dbUser._id.toString();
 };
