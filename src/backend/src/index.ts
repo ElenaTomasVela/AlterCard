@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import { User, checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
 import { WaitingRoom } from "./models/waitingRoom";
+import { connectDB } from "./libs/db";
 
 // Typescript needs to know that the env variables are defined
 declare module "bun" {
@@ -15,10 +16,13 @@ declare module "bun" {
   }
 }
 
-mongoose
-  .connect(process.env.DB_URL)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((e) => console.log(e));
+class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+connectDB();
 
 export const app = new Elysia()
   .use(tUser)
@@ -35,9 +39,23 @@ export const app = new Elysia()
   )
   .use(cors())
   .use(bearer())
-  .onError(({ code, error }) => {
-    console.log(error);
-    return new Response(error.toString());
+  .error("UNAUTHORIZED", AuthError)
+  .onError(({ code, error, set }) => {
+    switch (code) {
+      case "VALIDATION":
+        set.status = 400;
+        break;
+      case "UNAUTHORIZED":
+        set.status = 401;
+        break;
+      case "NOT_FOUND":
+        set.status = 404;
+        break;
+      default:
+        set.status = 500;
+        break;
+    }
+    return error.message;
   })
   .group("/user", (app) => {
     return app
@@ -57,7 +75,7 @@ export const app = new Elysia()
       )
       .post(
         "/login",
-        async ({ body, jwtauth, error }) => {
+        async ({ body, jwtauth, error, cookie: { authentication } }) => {
           const userId = await checkCredentials(body);
 
           if (userId) {
@@ -65,6 +83,7 @@ export const app = new Elysia()
               username: body.username,
               id: userId,
             });
+            authentication.set({ value: token, httpOnly: true, secure: true });
             return token;
           } else {
             return error(400, "Invalid credentials");
@@ -73,40 +92,34 @@ export const app = new Elysia()
         { body: "user" },
       );
   })
-  .guard(
-    {
-      beforeHandle: async ({ error, jwtauth, bearer }) => {
-        const user = await jwtauth.verify(bearer);
+  .resolve(async ({ jwtauth, bearer }) => {
+    const user = await jwtauth.verify(bearer);
+    if (!user) throw new AuthError("Unauthorized");
 
-        if (!user) {
-          return error(401, "Unauthorized");
-        }
-      },
-    },
-    (app) =>
-      app
-        .resolve(async ({ jwtauth, bearer }) => {
-          const user = await jwtauth.verify(bearer);
-          if (!user) throw new Error("Unauthorized");
+    return { user };
+  })
+  .group("/room", (app) => {
+    return app
+      .post("/", async ({ user }) => {
+        const waitingRoom = new WaitingRoom({
+          host: user.id,
+          players: [user.id],
+        });
+        await waitingRoom.save();
 
-          return { user };
-        })
-        .group("/room", (app) => {
-          return app
-            .post("/", async ({ user }) => {
-              const waitingRoom = new WaitingRoom({
-                host: user.id,
-                players: [user.id],
-              });
-              await waitingRoom.save();
-
-              return waitingRoom.id;
-            })
-            .get("/:id", async ({ params: { id } }) => {
-              return "Joined room " + id;
-            });
-        }),
-  )
+        return waitingRoom.id;
+      })
+      .ws("/:id/ws", {
+        params: t.Object({ id: t.String() }),
+        open(ws) {
+          ws.subscribe(ws.data.params.id);
+          app.server?.publish(ws.data.params.id, "Broadcasting");
+        },
+        close(ws) {
+          ws.publish(ws.data.params.id, "playerLeft");
+        },
+      });
+  })
   .listen(3000);
 
 console.log(
