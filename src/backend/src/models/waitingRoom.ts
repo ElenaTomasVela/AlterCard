@@ -1,7 +1,14 @@
 import mongoose from "mongoose";
 import { houseRule } from "./houseRule";
 
-const WaitingRoomSchema = new mongoose.Schema({
+export interface IWaitingRoom {
+  host: mongoose.Types.ObjectId;
+  users: mongoose.Types.ObjectId[];
+  houseRules: string[];
+  deck: mongoose.Types.ObjectId;
+}
+
+const WaitingRoomSchema = new mongoose.Schema<IWaitingRoom>({
   host: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",

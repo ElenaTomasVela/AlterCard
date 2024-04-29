@@ -1,7 +1,7 @@
 import { jwt } from "@elysiajs/jwt";
 import swagger from "@elysiajs/swagger";
 import { bearer } from "@elysiajs/bearer";
-import { Elysia, t } from "elysia";
+import { Elysia, NotFoundError, t } from "elysia";
 import mongoose from "mongoose";
 import { User, checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
@@ -111,9 +111,24 @@ export const app = new Elysia()
       })
       .ws("/:id/ws", {
         params: t.Object({ id: t.String() }),
-        open(ws) {
+        async beforeHandle({ params }) {
+          const waitingRoom = await WaitingRoom.findById(params.id);
+          if (!waitingRoom) throw new NotFoundError();
+        },
+        async open(ws) {
           ws.subscribe(ws.data.params.id);
-          app.server?.publish(ws.data.params.id, "Broadcasting");
+          ws.publish(ws.data.params.id, "playerJoined");
+          const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
+          if (
+            !waitingRoom!.users.includes(
+              new mongoose.Types.ObjectId(ws.data.user.id),
+            )
+          ) {
+            await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
+              $push: { users: ws.data.user.id },
+            });
+          }
+          ws.send("success");
         },
         close(ws) {
           ws.publish(ws.data.params.id, "playerLeft");

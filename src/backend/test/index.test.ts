@@ -4,8 +4,10 @@ import { treaty } from "@elysiajs/eden";
 import mongoose from "mongoose";
 import { User, encryptUser } from "../src/models/user";
 import { WaitingRoom } from "../src/models/waitingRoom";
+import { waitForSocketConnection, waitForSocketMessage } from "./utils";
 
 const api = treaty(app);
+
 const users = [
   {
     username: "todelete",
@@ -144,9 +146,46 @@ describe("Room", () => {
     expect(status).toBe(401);
   });
 
-  test.skip("Authenticated room join", async () => {});
-  test.skip("Unauthenticated room join", async () => {});
-  test.skip("Incorrect room join", async () => {});
+  test("Authenticated room join", async () => {
+    const waitingRoomBefore = await WaitingRoom.findOne();
+    const roomId = waitingRoomBefore!.id;
+    const { data: token } = await api.user.login.post(users[1]);
+
+    // Eden Treaty has a buggy websocket implementation, so Bun's is
+    // being used instead, at the cost of type safety
+    const session = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    let messages: string[] = [];
+    session.addEventListener("open", () => messages.push("open"));
+    await waitForSocketConnection(session);
+    await waitForSocketMessage(session);
+
+    const waitingRoomAfter = await WaitingRoom.findById(roomId);
+
+    expect(messages).toStrictEqual(["open"]);
+    expect(waitingRoomAfter!.users.length).toBe(
+      waitingRoomBefore!.users.length + 1,
+    );
+  });
+  test("Unauthenticated room join", async () => {
+    const waitingRoom = await WaitingRoom.findOne();
+
+    const session = new WebSocket(
+      `ws://localhost:3000/room/${waitingRoom!.id}/ws`,
+    );
+    const promise = waitForSocketConnection(session);
+    expect(promise).rejects.toThrow();
+  });
+  test("Incorrect room join", async () => {
+    const session = new WebSocket(
+      `ws://localhost:3000/room/thisisincorrect/ws`,
+    );
+    const promise = waitForSocketConnection(session);
+    expect(promise).rejects.toThrow();
+  });
 
   test.skip("Player ready", async () => {});
   test.skip("Player not ready", async () => {});
