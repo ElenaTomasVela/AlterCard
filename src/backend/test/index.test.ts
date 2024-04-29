@@ -187,6 +187,51 @@ describe("Room", () => {
     expect(promise).rejects.toThrow();
   });
 
+  test("Player join notified", async () => {
+    const waitingRoomBefore = await WaitingRoom.findOne();
+    const roomId = waitingRoomBefore!.id;
+    const { data: token1 } = await api.user.login.post(users[1]);
+    const { data: token2 } = await api.user.login.post(users[2]);
+
+    const session1 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+    await waitForSocketConnection(session1);
+
+    const session2 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Authorization: `Bearer ${token2}` },
+    });
+    await waitForSocketConnection(session2);
+    const message = await waitForSocketMessage(session1);
+
+    expect(message).toBe("playerJoined");
+  });
+  test("Player leave notified", async () => {
+    const waitingRoomBefore = await WaitingRoom.findOne();
+    const roomId = waitingRoomBefore!.id;
+    const { data: token1 } = await api.user.login.post(users[1]);
+    const { data: token2 } = await api.user.login.post(users[2]);
+
+    const session1 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Authorization: `Bearer ${token2}` },
+    });
+    await waitForSocketConnection(session2);
+    await waitForSocketMessage(session1);
+
+    session2.send("disconnect");
+
+    const message = await waitForSocketMessage(session1);
+    expect(message).toBe("playerLeft");
+  });
+
   test.skip("Player ready", async () => {});
   test.skip("Player not ready", async () => {});
 

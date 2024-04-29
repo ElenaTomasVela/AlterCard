@@ -7,6 +7,7 @@ import { User, checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
 import { WaitingRoom } from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
+import { Game, gameFromWaitingRoom } from "./models/game";
 
 // Typescript needs to know that the env variables are defined
 declare module "bun" {
@@ -111,6 +112,7 @@ export const app = new Elysia()
       })
       .ws("/:id/ws", {
         params: t.Object({ id: t.String() }),
+        body: t.Union([t.Literal("start"), t.Literal("disconnect")]),
         async beforeHandle({ params }) {
           const waitingRoom = await WaitingRoom.findById(params.id);
           if (!waitingRoom) throw new NotFoundError();
@@ -131,7 +133,30 @@ export const app = new Elysia()
           ws.send("success");
         },
         close(ws) {
-          ws.publish(ws.data.params.id, "playerLeft");
+          ws.unsubscribe(ws.data.params.id);
+        },
+        async message(ws, message) {
+          switch (message) {
+            case "start":
+              const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
+              if (waitingRoom!.host.toString() !== ws.data.user.id) {
+                const game = gameFromWaitingRoom(waitingRoom!);
+                await game.save();
+
+                app.server?.publish(ws.data.params.id, "gameStarted");
+              } else {
+                throw new Error("Only the host can start the game");
+              }
+              break;
+            // Cannot implement this in close callback since it cannot publish
+            // on a closed connection
+            case "disconnect":
+              ws.publish(ws.data.params.id, "playerLeft");
+              ws.close();
+
+            default:
+              break;
+          }
         },
       });
   })
