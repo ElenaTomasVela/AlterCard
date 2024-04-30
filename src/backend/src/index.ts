@@ -103,6 +103,9 @@ export const app = new Elysia()
   })
   .group("/room", (app) => {
     return app
+      .get("/", async () => {
+        return await WaitingRoom.find().populate("host", "username");
+      })
       .post("/", async ({ user }) => {
         const waitingRoom = new WaitingRoom({
           host: user.id,
@@ -111,6 +114,11 @@ export const app = new Elysia()
         await waitingRoom.save();
 
         return waitingRoom.id;
+      })
+      .get("/:id", async ({ params }) => {
+        return await WaitingRoom.findById(params.id)
+          .populate("host", "username")
+          .populate("users", "username");
       })
       .ws("/:id/ws", {
         params: t.Object({ id: t.String() }),
