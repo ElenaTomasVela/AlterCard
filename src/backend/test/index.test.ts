@@ -226,7 +226,7 @@ describe("Room", () => {
     await waitForSocketConnection(session2);
     await waitForSocketMessage(session1);
 
-    session2.send("disconnect");
+    session2.close();
 
     const message = await waitForSocketMessage(session1);
     expect(message).toBe("playerLeft");

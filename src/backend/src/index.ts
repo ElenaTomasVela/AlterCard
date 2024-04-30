@@ -1,4 +1,5 @@
 import { jwt } from "@elysiajs/jwt";
+import { Server } from "bun";
 import swagger from "@elysiajs/swagger";
 import { bearer } from "@elysiajs/bearer";
 import { Elysia, NotFoundError, t } from "elysia";
@@ -25,6 +26,7 @@ class AuthError extends Error {
 
 connectDB();
 
+let serverInstance: Server | undefined | null;
 export const app = new Elysia()
   .use(tUser)
   .use(swagger())
@@ -112,7 +114,7 @@ export const app = new Elysia()
       })
       .ws("/:id/ws", {
         params: t.Object({ id: t.String() }),
-        body: t.Union([t.Literal("start"), t.Literal("disconnect")]),
+        body: t.Union([t.Literal("start")]),
         async beforeHandle({ params }) {
           const waitingRoom = await WaitingRoom.findById(params.id);
           if (!waitingRoom) throw new NotFoundError();
@@ -133,6 +135,7 @@ export const app = new Elysia()
           ws.send("success");
         },
         close(ws) {
+          serverInstance?.publish(ws.data.params.id, "playerLeft");
           ws.unsubscribe(ws.data.params.id);
         },
         async message(ws, message) {
@@ -148,12 +151,6 @@ export const app = new Elysia()
                 throw new Error("Only the host can start the game");
               }
               break;
-            // Cannot implement this in close callback since it cannot publish
-            // on a closed connection
-            case "disconnect":
-              ws.publish(ws.data.params.id, "playerLeft");
-              ws.close();
-
             default:
               break;
           }
@@ -161,6 +158,8 @@ export const app = new Elysia()
       });
   })
   .listen(3000);
+
+serverInstance = app.server;
 
 console.log(
   `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
