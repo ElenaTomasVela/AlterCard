@@ -147,8 +147,8 @@ export const app = new Elysia()
           );
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
           if (
-            !waitingRoom!.users.includes(
-              new mongoose.Types.ObjectId(ws.data.user.id),
+            !waitingRoom!.users.some(
+              (u) => u.user.toString() === ws.data.user.id,
             )
           ) {
             await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {

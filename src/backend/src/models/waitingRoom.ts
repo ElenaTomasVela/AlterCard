@@ -3,7 +3,12 @@ import { houseRule } from "./houseRule";
 
 export interface IWaitingRoom {
   host: mongoose.Types.ObjectId;
-  users: mongoose.Types.ObjectId[];
+  users: [
+    {
+      user: mongoose.Types.ObjectId;
+      ready: boolean;
+    },
+  ];
   houseRules: string[];
   deck: mongoose.Types.ObjectId;
 }
