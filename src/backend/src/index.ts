@@ -110,16 +110,18 @@ export const app = new Elysia()
       .post("/", async ({ user }) => {
         const waitingRoom = new WaitingRoom({
           host: user.id,
-          players: [user.id],
+          users: [{ user: user.id }],
         });
         await waitingRoom.save();
 
         return waitingRoom.id;
       })
       .get("/:id", async ({ params }) => {
-        return await WaitingRoom.findById(params.id)
+        const room = await WaitingRoom.findById(params.id)
           .populate("host", "username")
-          .populate("users", "username");
+          .populate("users.user", "username")
+          .lean();
+        return room;
       })
       .ws("/:id/ws", {
         params: t.Object({ id: t.String() }),

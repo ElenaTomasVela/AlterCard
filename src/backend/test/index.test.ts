@@ -134,10 +134,19 @@ describe("Room", () => {
       { headers: { authorization: `Bearer ${token}` } },
     );
     const currentRoomCount = (await WaitingRoom.find()).length;
+    const room = await WaitingRoom.findById(roomId).populate(
+      "host",
+      "username",
+    );
+
+    console.log(room);
 
     expect(loginStatus).toBe(200);
     expect(status).toBe(200);
     expect(roomId).toBeString;
+    expect(room).not.toBeNull();
+    expect(room!.host.username).toBe(users[1].username);
+    expect(room!.users.length).toBe(1);
     expect(currentRoomCount).toBe(previousRoomCount + 1);
   });
   test("Unauthenticated room creation", async () => {
