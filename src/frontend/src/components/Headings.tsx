@@ -7,7 +7,7 @@ export const H1 = ({
   children: React.ReactNode;
   className?: string;
 }) => {
-  return <h1 className={`font-bold text-3xl mb-2 ${className}`}>{children}</h1>;
+  return <h1 className={`font-bold text-4xl mb-2 ${className}`}>{children}</h1>;
 };
 
 export const H2 = ({

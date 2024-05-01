@@ -28,6 +28,7 @@ const CardSchema = new mongoose.Schema({
 
 const CardDeckSchema = new mongoose.Schema({
   name: String,
+  description: String,
   cards: [CardSchema],
 });
 

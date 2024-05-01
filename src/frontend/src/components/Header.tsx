@@ -19,6 +19,11 @@ export const Header = () => {
       <ul className="flex">
         <NavLink to="/">AlterUno</NavLink>
       </ul>
+      <ul>
+        <li>
+          <NavLink to="/rooms">Join a Game</NavLink>
+        </li>
+      </ul>
       <ul className="flex items-center gap-6">
         {user ? (
           <>

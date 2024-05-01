@@ -15,8 +15,11 @@ const WaitingRoomSchema = new mongoose.Schema<IWaitingRoom>({
   },
   users: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ready: {
+        type: Boolean,
+        default: false,
+      },
+      user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     },
   ],
   houseRules: {

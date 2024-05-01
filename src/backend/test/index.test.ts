@@ -146,6 +146,43 @@ describe("Room", () => {
     expect(status).toBe(401);
   });
 
+  test("Authenticated room list", async () => {
+    const { data: token, status: loginStatus } = await api.user.login.post(
+      users[1],
+    );
+
+    const roomIds = (await WaitingRoom.find()).map((r) => r.id);
+
+    const { data, status } = await api.room.index.get({
+      headers: {
+        authorization: `Bearer ${token}`,
+        contentType: "application/json",
+      },
+    });
+
+    const fetchedRoomIds = data!.map((r: any) => r._id);
+
+    expect(status).toBe(200);
+    expect(fetchedRoomIds).toEqual(roomIds);
+  });
+
+  test.skip("Authenticated room get", async () => {
+    const { data: token, status: loginStatus } = await api.user.login.post(
+      users[1],
+    );
+
+    const roomId = (await WaitingRoom.findOne())!.id;
+    const response = await api.room(roomId).get({
+      headers: {
+        authorization: `Bearer ${token}`,
+        contentType: "application/json",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.data!._id).toBe(roomId);
+  });
+
   test("Authenticated room join", async () => {
     const waitingRoomBefore = await WaitingRoom.findOne();
     const roomId = waitingRoomBefore!.id;
@@ -206,7 +243,7 @@ describe("Room", () => {
     await waitForSocketConnection(session2);
     const message = await waitForSocketMessage(session1);
 
-    expect(message).toBe("playerJoined");
+    expect(message).toContain("playerJoined");
   });
   test("Player leave notified", async () => {
     const waitingRoomBefore = await WaitingRoom.findOne();
@@ -229,10 +266,32 @@ describe("Room", () => {
     session2.close();
 
     const message = await waitForSocketMessage(session1);
-    expect(message).toBe("playerLeft");
+    expect(message).toContain("playerLeft");
   });
 
-  test.skip("Player ready", async () => {});
+  test.skip("Player ready", async () => {
+    const waitingRoomBefore = await WaitingRoom.findOne();
+    const roomId = waitingRoomBefore!.id;
+    const { data: token1 } = await api.user.login.post(users[1]);
+    const { data: token2 } = await api.user.login.post(users[2]);
+
+    const session1 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Authorization: `Bearer ${token2}` },
+    });
+    await waitForSocketConnection(session2);
+    await waitForSocketMessage(session1);
+
+    session2.close();
+
+    const message = await waitForSocketMessage(session1);
+    expect(message).toContain("playerLeft");
+  });
   test.skip("Player not ready", async () => {});
 
   test.skip("Correct game start", async () => {});

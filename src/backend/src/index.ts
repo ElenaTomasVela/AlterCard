@@ -2,13 +2,14 @@ import { jwt } from "@elysiajs/jwt";
 import { Server } from "bun";
 import swagger from "@elysiajs/swagger";
 import { bearer } from "@elysiajs/bearer";
-import { Elysia, NotFoundError, t } from "elysia";
+import { Elysia, NotFoundError, ValidationError, t } from "elysia";
 import mongoose from "mongoose";
 import { User, checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
 import { WaitingRoom } from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
 import { Game, gameFromWaitingRoom } from "./models/game";
+import { houseRule } from "./models/houseRule";
 
 // Typescript needs to know that the env variables are defined
 declare module "bun" {
@@ -122,14 +123,28 @@ export const app = new Elysia()
       })
       .ws("/:id/ws", {
         params: t.Object({ id: t.String() }),
-        body: t.Union([t.Literal("start")]),
+        body: t.Object({
+          action: t.Union([
+            t.Literal("start"),
+            t.Literal("addRule"),
+            t.Literal("removeRule"),
+            t.Literal("ready"),
+          ]),
+          data: t.Optional(t.String()),
+        }),
         async beforeHandle({ params }) {
           const waitingRoom = await WaitingRoom.findById(params.id);
           if (!waitingRoom) throw new NotFoundError();
         },
         async open(ws) {
           ws.subscribe(ws.data.params.id);
-          ws.publish(ws.data.params.id, "playerJoined");
+          ws.publish(
+            ws.data.params.id,
+            JSON.stringify({
+              action: "playerJoined",
+              data: ws.data.user.username,
+            }),
+          );
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
           if (
             !waitingRoom!.users.includes(
@@ -137,27 +152,107 @@ export const app = new Elysia()
             )
           ) {
             await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
-              $push: { users: ws.data.user.id },
+              $push: { users: { user: ws.data.user.id } },
             });
           }
           ws.send("success");
         },
-        close(ws) {
-          serverInstance?.publish(ws.data.params.id, "playerLeft");
+        async close(ws) {
+          serverInstance?.publish(
+            ws.data.params.id,
+            JSON.stringify({
+              action: "playerLeft",
+              data: ws.data.user.username,
+            }),
+          );
           ws.unsubscribe(ws.data.params.id);
+          await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
+            $pull: { users: ws.data.user.id },
+          });
         },
         async message(ws, message) {
-          switch (message) {
+          const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
+          switch (message.action) {
             case "start":
-              const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
               if (waitingRoom!.host.toString() !== ws.data.user.id) {
                 const game = gameFromWaitingRoom(waitingRoom!);
                 await game.save();
 
-                app.server?.publish(ws.data.params.id, "gameStarted");
+                serverInstance?.publish(
+                  ws.data.params.id,
+                  JSON.stringify({
+                    action: "gameStarted",
+                  }),
+                );
               } else {
                 throw new Error("Only the host can start the game");
               }
+              break;
+            case "addRule":
+              if (waitingRoom!.host.toString() !== ws.data.user.id)
+                throw new Error("Only the host can add rules");
+              if (!message.data || !(message.data in houseRule))
+                throw new ValidationError(
+                  "message.data",
+                  t.Enum(houseRule),
+                  message.data,
+                );
+              if (!waitingRoom!.houseRules.includes(message.data)) {
+                waitingRoom!.houseRules.push(message.data);
+                await waitingRoom!.save();
+
+                ws.publish(
+                  ws.data.params.id,
+                  JSON.stringify({
+                    action: "houseRuleAdded",
+                    data: message.data,
+                  }),
+                );
+              }
+              break;
+            case "removeRule":
+              if (waitingRoom!.host.toString() !== ws.data.user.id)
+                throw new Error("Only the host can add rules");
+              if (!message.data || !(message.data in houseRule))
+                throw new ValidationError(
+                  "message.data",
+                  t.Enum(houseRule),
+                  message.data,
+                );
+              if (waitingRoom!.houseRules.includes(message.data)) {
+                await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
+                  $pull: { houseRules: message.data },
+                });
+
+                ws.publish(
+                  ws.data.params.id,
+                  JSON.stringify({
+                    action: "houseRuleRemoved",
+                    data: message.data,
+                  }),
+                );
+              }
+              break;
+            case "ready":
+              if (
+                !message.data ||
+                (message.data !== "true" && message.data !== "false")
+              )
+                throw new ValidationError(
+                  "message.data",
+                  t.Union([t.Literal("true"), t.Literal("false")]),
+                  message.data,
+                );
+              const parsedReady = message.data === "true";
+              await WaitingRoom.findByIdAndUpdate(
+                ws.data.params.id,
+                {
+                  _id: waitingRoom!._id,
+                  "users.user": ws.data.user.id,
+                },
+                { $set: { "users.$.ready": parsedReady } },
+              );
+
               break;
             default:
               break;
