@@ -7,6 +7,10 @@ export interface IUser {
   password: string;
 }
 
+export interface IPopulatedUser {
+  username: string;
+}
+
 export const tUser = new Elysia().model({
   user: t.Object({
     username: t.String(),

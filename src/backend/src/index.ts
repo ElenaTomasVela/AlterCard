@@ -134,9 +134,9 @@ export const app = new Elysia()
             t.Literal("removeRule"),
             t.Literal("ready"),
           ]),
-          data: t.Optional(t.String()),
+          data: t.Optional(t.Union([t.String(), t.Boolean()])),
         }),
-        async beforeHandle({ params }) {
+        async beforeHandle({ params, body }) {
           const waitingRoom = await WaitingRoom.findById(params.id);
           if (!waitingRoom) throw new NotFoundError();
         },
@@ -159,7 +159,6 @@ export const app = new Elysia()
               }),
             );
           }
-          ws.send("success");
         },
         async close(ws) {
           serverInstance?.publish(
@@ -175,7 +174,6 @@ export const app = new Elysia()
           });
         },
         async message(ws, message) {
-          console.log("received message", message);
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
           switch (message.action) {
             case "start":
@@ -196,7 +194,11 @@ export const app = new Elysia()
             case "addRule":
               if (waitingRoom!.host.toString() !== ws.data.user.id)
                 throw new Error("Only the host can add rules");
-              if (!message.data || !(message.data in houseRule))
+              if (
+                !message.data ||
+                typeof message.data !== "string" ||
+                !(message.data in houseRule)
+              )
                 throw new ValidationError(
                   "message.data",
                   t.Enum(houseRule),
@@ -218,7 +220,11 @@ export const app = new Elysia()
             case "removeRule":
               if (waitingRoom!.host.toString() !== ws.data.user.id)
                 throw new Error("Only the host can add rules");
-              if (!message.data || !(message.data in houseRule))
+              if (
+                !message.data ||
+                typeof message.data !== "string" ||
+                !(message.data in houseRule)
+              )
                 throw new ValidationError(
                   "message.data",
                   t.Enum(houseRule),
@@ -239,23 +245,18 @@ export const app = new Elysia()
               }
               break;
             case "ready":
-              if (
-                !message.data ||
-                (message.data !== "true" && message.data !== "false")
-              )
+              if (typeof message.data !== "boolean")
                 throw new ValidationError(
                   "message.data",
-                  t.Union([t.Literal("true"), t.Literal("false")]),
+                  t.Boolean(),
                   message.data,
                 );
-              const parsedReady = message.data === "true";
-              await WaitingRoom.findByIdAndUpdate(
-                ws.data.params.id,
+              await WaitingRoom.findOneAndUpdate(
                 {
                   _id: waitingRoom!._id,
                   "users.user": ws.data.user.id,
                 },
-                { $set: { "users.$.ready": parsedReady } },
+                { $set: { "users.$.ready": message.data } },
               );
               ws.publish(
                 ws.data.params.id,

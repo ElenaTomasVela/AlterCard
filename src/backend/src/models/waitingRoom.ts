@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { houseRule } from "./houseRule";
+import { IPopulatedUser } from "./user";
 
 export interface IWaitingRoom {
   host: mongoose.Types.ObjectId;

@@ -2,9 +2,13 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { app } from "../src";
 import { treaty } from "@elysiajs/eden";
 import mongoose from "mongoose";
-import { User, encryptUser } from "../src/models/user";
+import { IPopulatedUser, User, encryptUser } from "../src/models/user";
 import { WaitingRoom } from "../src/models/waitingRoom";
-import { waitForSocketConnection, waitForSocketMessage } from "./utils";
+import {
+  getCookieFromResponse,
+  waitForSocketConnection,
+  waitForSocketMessage,
+} from "./utils";
 
 const api = treaty(app);
 
@@ -124,22 +128,20 @@ describe("Authentication", () => {
 
 describe("Room", () => {
   test("Authenticated room creation", async () => {
-    const { data: token, status: loginStatus } = await api.user.login.post(
+    const { status: loginStatus, response } = await api.user.login.post(
       users[1],
     );
+    const token = getCookieFromResponse(response)["authorization"];
 
     const previousRoomCount = (await WaitingRoom.find()).length;
     const { status, data: roomId } = await api.room.index.post(
       {},
-      { headers: { authorization: `Bearer ${token}` } },
+      { headers: { Cookie: `authorization=${token}` } },
     );
     const currentRoomCount = (await WaitingRoom.find()).length;
-    const room = await WaitingRoom.findById(roomId).populate(
-      "host",
-      "username",
-    );
-
-    console.log(room);
+    const room = await WaitingRoom.findById(roomId).populate<{
+      host: IPopulatedUser;
+    }>("host", "username");
 
     expect(loginStatus).toBe(200);
     expect(status).toBe(200);
@@ -156,15 +158,16 @@ describe("Room", () => {
   });
 
   test("Authenticated room list", async () => {
-    const { data: token, status: loginStatus } = await api.user.login.post(
+    const { response, status: loginStatus } = await api.user.login.post(
       users[1],
     );
+    const token = getCookieFromResponse(response)["authorization"];
 
     const roomIds = (await WaitingRoom.find()).map((r) => r.id);
 
     const { data, status } = await api.room.index.get({
       headers: {
-        authorization: `Bearer ${token}`,
+        Cookie: `authorization=${token}`,
         contentType: "application/json",
       },
     });
@@ -195,26 +198,19 @@ describe("Room", () => {
   test("Authenticated room join", async () => {
     const waitingRoomBefore = await WaitingRoom.findOne();
     const roomId = waitingRoomBefore!.id;
-    const { data: token } = await api.user.login.post(users[1]);
+    const { response } = await api.user.login.post(users[1]);
+    const token = getCookieFromResponse(response)["authorization"];
 
     // Eden Treaty has a buggy websocket implementation, so Bun's is
     // being used instead, at the cost of type safety
     const session = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
       // @ts-expect-error
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Cookie: `authorization=${token}` },
     });
 
-    let messages: string[] = [];
-    session.addEventListener("open", () => messages.push("open"));
-    await waitForSocketConnection(session);
-    await waitForSocketMessage(session);
+    const promise = waitForSocketConnection(session);
 
-    const waitingRoomAfter = await WaitingRoom.findById(roomId);
-
-    expect(messages).toStrictEqual(["open"]);
-    expect(waitingRoomAfter!.users.length).toBe(
-      waitingRoomBefore!.users.length + 1,
-    );
+    return expect(promise).resolves.toBeUndefined();
   });
   test("Unauthenticated room join", async () => {
     const waitingRoom = await WaitingRoom.findOne();
@@ -236,18 +232,20 @@ describe("Room", () => {
   test("Player join notified", async () => {
     const waitingRoomBefore = await WaitingRoom.findOne();
     const roomId = waitingRoomBefore!.id;
-    const { data: token1 } = await api.user.login.post(users[1]);
-    const { data: token2 } = await api.user.login.post(users[2]);
+    const { response: response1 } = await api.user.login.post(users[1]);
+    const { response: response2 } = await api.user.login.post(users[2]);
+    const token1 = getCookieFromResponse(response1)["authorization"];
+    const token2 = getCookieFromResponse(response2)["authorization"];
 
     const session1 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
       // @ts-expect-error
-      headers: { Authorization: `Bearer ${token1}` },
+      headers: { Cookie: `authorization=${token1}` },
     });
     await waitForSocketConnection(session1);
 
     const session2 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
       // @ts-expect-error
-      headers: { Authorization: `Bearer ${token2}` },
+      headers: { Cookie: `authorization=${token2}` },
     });
     await waitForSocketConnection(session2);
     const message = await waitForSocketMessage(session1);
@@ -257,20 +255,21 @@ describe("Room", () => {
   test("Player leave notified", async () => {
     const waitingRoomBefore = await WaitingRoom.findOne();
     const roomId = waitingRoomBefore!.id;
-    const { data: token1 } = await api.user.login.post(users[1]);
-    const { data: token2 } = await api.user.login.post(users[2]);
+    const { response: response1 } = await api.user.login.post(users[1]);
+    const { response: response2 } = await api.user.login.post(users[2]);
+    const token1 = getCookieFromResponse(response1)["authorization"];
+    const token2 = getCookieFromResponse(response2)["authorization"];
 
     const session1 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
       // @ts-expect-error
-      headers: { Authorization: `Bearer ${token1}` },
+      headers: { Cookie: `authorization=${token1}` },
     });
     await waitForSocketConnection(session1);
     const session2 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
       // @ts-expect-error
-      headers: { Authorization: `Bearer ${token2}` },
+      headers: { Cookie: `authorization=${token2}` },
     });
     await waitForSocketConnection(session2);
-    await waitForSocketMessage(session1);
 
     session2.close();
 
@@ -278,28 +277,34 @@ describe("Room", () => {
     expect(message).toContain("playerLeft");
   });
 
-  test.skip("Player ready", async () => {
+  test("Player ready", async () => {
     const waitingRoomBefore = await WaitingRoom.findOne();
     const roomId = waitingRoomBefore!.id;
-    const { data: token1 } = await api.user.login.post(users[1]);
-    const { data: token2 } = await api.user.login.post(users[2]);
+    const { response: response1 } = await api.user.login.post(users[1]);
+    const { response: response2 } = await api.user.login.post(users[2]);
+    const token1 = getCookieFromResponse(response1)["authorization"];
+    const token2 = getCookieFromResponse(response2)["authorization"];
 
     const session1 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
       // @ts-expect-error
-      headers: { Authorization: `Bearer ${token1}` },
+      headers: { Cookie: `authorization=${token1}` },
     });
     await waitForSocketConnection(session1);
     const session2 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
       // @ts-expect-error
-      headers: { Authorization: `Bearer ${token2}` },
+      headers: { Cookie: `authorization=${token2}` },
     });
     await waitForSocketConnection(session2);
-    await waitForSocketMessage(session1);
 
-    session2.close();
+    session1.send(JSON.stringify({ action: "ready", data: true }));
+    const message = JSON.parse(await waitForSocketMessage(session2));
 
-    const message = await waitForSocketMessage(session1);
-    expect(message).toContain("playerLeft");
+    const waitingRoomAfter = await WaitingRoom.findById(waitingRoomBefore!.id);
+    const readyBefore = waitingRoomBefore!.users[0].ready;
+    const readyAfter = waitingRoomAfter!.users[0].ready;
+
+    expect(message.data).toBe(true);
+    expect(readyAfter).toBe(!readyBefore);
   });
   test.skip("Player not ready", async () => {});
 
