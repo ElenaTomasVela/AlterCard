@@ -3,6 +3,7 @@ import { Header } from "../components/Header";
 import { Container } from "../components/Container";
 import { AuthProvider } from "@/context/AuthContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
 
 export const Layout = () => {
   return (
@@ -14,6 +15,7 @@ export const Layout = () => {
             <Container>
               <Outlet />
             </Container>
+            <Toaster />
           </TooltipProvider>
         </>
       </AuthProvider>

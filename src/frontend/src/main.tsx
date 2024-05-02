@@ -50,8 +50,7 @@ const router = createBrowserRouter([
   },
 ]);
 
+// StrictMode conflicts with WebSockets, so I had to remove it, see https://github.com/facebook/create-react-app/issues/10387
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <RouterProvider router={router} />
-  </React.StrictMode>,
+  <RouterProvider router={router} />,
 );

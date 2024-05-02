@@ -136,7 +136,7 @@ export const app = new Elysia()
           ]),
           data: t.Optional(t.Union([t.String(), t.Boolean()])),
         }),
-        async beforeHandle({ params, body }) {
+        async beforeHandle({ params }) {
           const waitingRoom = await WaitingRoom.findById(params.id);
           if (!waitingRoom) throw new NotFoundError();
         },
@@ -151,7 +151,7 @@ export const app = new Elysia()
             await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
               $push: { users: { user: ws.data.user.id } },
             });
-            ws.publish(
+            serverInstance?.publish(
               ws.data.params.id,
               JSON.stringify({
                 action: "playerJoined",
@@ -161,6 +161,9 @@ export const app = new Elysia()
           }
         },
         async close(ws) {
+          await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
+            $pull: { users: { user: ws.data.user.id } },
+          });
           serverInstance?.publish(
             ws.data.params.id,
             JSON.stringify({
@@ -169,9 +172,6 @@ export const app = new Elysia()
             }),
           );
           ws.unsubscribe(ws.data.params.id);
-          await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
-            $pull: { users: ws.data.user.id },
-          });
         },
         async message(ws, message) {
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);

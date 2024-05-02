@@ -272,9 +272,13 @@ describe("Room", () => {
     await waitForSocketConnection(session2);
 
     session2.close();
-
     const message = await waitForSocketMessage(session1);
+    const waitingRoomAfter = await WaitingRoom.findById(waitingRoomBefore!.id);
+
     expect(message).toContain("playerLeft");
+    expect(waitingRoomAfter!.users.length).toBe(
+      waitingRoomBefore!.users.length - 1,
+    );
   });
 
   test("Player ready", async () => {
