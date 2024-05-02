@@ -1,14 +1,12 @@
 import { jwt } from "@elysiajs/jwt";
 import { Server } from "bun";
 import swagger from "@elysiajs/swagger";
-import { bearer } from "@elysiajs/bearer";
 import { Elysia, NotFoundError, ValidationError, t } from "elysia";
-import mongoose from "mongoose";
-import { User, checkCredentials, encryptUser, tUser } from "./models/user";
+import { checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
 import { WaitingRoom } from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
-import { Game, gameFromWaitingRoom } from "./models/game";
+import { gameFromWaitingRoom } from "./models/game";
 import { houseRule } from "./models/houseRule";
 
 // Typescript needs to know that the env variables are defined
@@ -16,6 +14,7 @@ declare module "bun" {
   interface Env {
     JWT_SECRET: string;
     DB_URL: string;
+    FRONTEND_URL: string;
   }
 }
 
@@ -41,8 +40,12 @@ export const app = new Elysia()
       }),
     }),
   )
-  .use(cors())
-  .use(bearer())
+  .use(
+    cors({
+      origin: process.env.FRONTEND_URL,
+      allowedHeaders: "Content-Type",
+    }),
+  )
   .error("UNAUTHORIZED", AuthError)
   .onError(({ code, error, set }) => {
     switch (code) {
@@ -79,16 +82,15 @@ export const app = new Elysia()
       )
       .post(
         "/login",
-        async ({ body, jwtauth, error, cookie: { authentication } }) => {
+        async ({ body, jwtauth, error, cookie: { authorization } }) => {
           const userId = await checkCredentials(body);
-
           if (userId) {
             const token = await jwtauth.sign({
               username: body.username,
               id: userId,
             });
-            authentication.set({ value: token, httpOnly: true, secure: true });
-            return token;
+            authorization.set({ value: token, sameSite: true, path: "/" });
+            return "success";
           } else {
             return error(400, "Invalid credentials");
           }
@@ -96,8 +98,8 @@ export const app = new Elysia()
         { body: "user" },
       );
   })
-  .resolve(async ({ jwtauth, bearer }) => {
-    const user = await jwtauth.verify(bearer);
+  .resolve(async ({ jwtauth, cookie: { authorization } }) => {
+    const user = await jwtauth.verify(authorization.value);
     if (!user) throw new AuthError("Unauthorized");
 
     return { user };
@@ -254,7 +256,14 @@ export const app = new Elysia()
                 },
                 { $set: { "users.$.ready": parsedReady } },
               );
-
+              ws.publish(
+                ws.data.params.id,
+                JSON.stringify({
+                  action: "ready",
+                  data: message.data,
+                  user: ws.data.user.username,
+                }),
+              );
               break;
             default:
               break;
