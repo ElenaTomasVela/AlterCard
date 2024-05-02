@@ -142,13 +142,6 @@ export const app = new Elysia()
         },
         async open(ws) {
           ws.subscribe(ws.data.params.id);
-          ws.publish(
-            ws.data.params.id,
-            JSON.stringify({
-              action: "playerJoined",
-              data: ws.data.user.username,
-            }),
-          );
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
           if (
             !waitingRoom!.users.some(
@@ -158,6 +151,13 @@ export const app = new Elysia()
             await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
               $push: { users: { user: ws.data.user.id } },
             });
+            ws.publish(
+              ws.data.params.id,
+              JSON.stringify({
+                action: "playerJoined",
+                data: ws.data.user.username,
+              }),
+            );
           }
           ws.send("success");
         },
@@ -175,6 +175,7 @@ export const app = new Elysia()
           });
         },
         async message(ws, message) {
+          console.log("received message", message);
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
           switch (message.action) {
             case "start":
