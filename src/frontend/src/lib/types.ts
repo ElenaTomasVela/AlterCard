@@ -75,8 +75,8 @@ export interface IWebsocketMessage {
     | "playerLeft"
     | "startGame"
     | "ready"
-    | "houseRuleAdded"
-    | "houseRuleRemoved";
+    | "addRule"
+    | "removeRule";
   data: string;
 }
 
@@ -86,8 +86,8 @@ export interface IWebsocketMessageServer {
     | "playerLeft"
     | "startGame"
     | "ready"
-    | "houseRuleAdded"
-    | "houseRuleRemoved";
+    | "addRule"
+    | "removeRule";
   data: string;
   user: string;
 }

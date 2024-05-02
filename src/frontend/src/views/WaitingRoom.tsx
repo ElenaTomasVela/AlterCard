@@ -10,6 +10,7 @@ import {
 } from "@/lib/utils";
 import { useParams } from "react-router-dom";
 import {
+  HouseRule,
   HouseRuleDetails,
   IWaitingRoom,
   IWebsocketMessage,
@@ -46,12 +47,16 @@ const Player = ({
   );
 };
 
-const HouseRule = ({
+const HouseRuleSwitch = ({
   houseRule,
   disable,
+  checked,
+  onChange,
 }: {
   houseRule: { name: string; description: string; id: string };
   disable: boolean;
+  checked?: boolean;
+  onChange?: (checked: boolean) => void;
 }) => {
   return (
     <>
@@ -62,6 +67,8 @@ const HouseRule = ({
               className="shadow-inner"
               id={houseRule.id}
               disabled={disable}
+              checked={checked}
+              onCheckedChange={onChange}
             />
             <label
               className="cursor-pointer select-none"
@@ -88,7 +95,6 @@ export const WaitingRoom = () => {
   const { toast } = useToast();
 
   const setPlayerReady = (player: string, ready: boolean) => {
-    console.log("setting ready", player, ready);
     setRoom((r) => {
       if (!r) return;
       const newPlayers = r.users.map((u) =>
@@ -112,6 +118,28 @@ export const WaitingRoom = () => {
         },
       ],
     }));
+  };
+
+  const addHouseRule = (rule: HouseRule) => {
+    setRoom((r) => {
+      if (!r) return;
+      const newHouseRules = [...r!.houseRules, rule];
+      return {
+        ...r,
+        houseRules: newHouseRules,
+      };
+    });
+  };
+
+  const removeHouseRule = (rule: HouseRule) => {
+    setRoom((r) => {
+      if (!r) return;
+      const newHouseRules = r.houseRules.filter((r) => r != rule);
+      return {
+        ...r,
+        houseRules: newHouseRules,
+      };
+    });
   };
 
   const connect = async () => {
@@ -149,9 +177,14 @@ export const WaitingRoom = () => {
           if (typeof msgObject.data !== "boolean") return;
           setPlayerReady(msgObject.user, msgObject.data);
           break;
-        case "houseRuleAdded":
+        case "addRule":
+          if (typeof msgObject.data !== "string") return;
+          addHouseRule(msgObject.data as HouseRule);
           break;
-        case "houseRuleRemoved":
+        case "removeRule":
+          if (typeof msgObject.data !== "string") return;
+          console.log("removing");
+          removeHouseRule(msgObject.data as HouseRule);
           break;
         default:
           break;
@@ -176,6 +209,17 @@ export const WaitingRoom = () => {
     setPlayerReady(user, ready);
   };
 
+  const changeHouseRule = async (id: HouseRule, add: boolean) => {
+    if (!socket || !user) return;
+    if (add) {
+      socket?.send(JSON.stringify({ action: "addRule", data: id }));
+      addHouseRule(id);
+    } else {
+      socket?.send(JSON.stringify({ action: "removeRule", data: id }));
+      removeHouseRule(id);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col gap-5">
@@ -194,10 +238,12 @@ export const WaitingRoom = () => {
               <div className="flex flex-col gap-3 p-5">
                 {room &&
                   HouseRuleDetails.map((r, index) => (
-                    <HouseRule
+                    <HouseRuleSwitch
                       houseRule={r}
                       key={index}
                       disable={user != room.host.username}
+                      checked={room.houseRules.includes(r.id)}
+                      onChange={(add) => changeHouseRule(r.id, add)}
                     />
                   ))}
               </div>
