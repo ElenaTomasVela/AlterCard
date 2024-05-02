@@ -161,9 +161,13 @@ export const app = new Elysia()
           }
         },
         async close(ws) {
-          await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
-            $pull: { users: { user: ws.data.user.id } },
-          });
+          const updated = await WaitingRoom.findByIdAndUpdate(
+            ws.data.params.id,
+            {
+              $pull: { users: { user: ws.data.user.id } },
+            },
+            { new: true },
+          );
           serverInstance?.publish(
             ws.data.params.id,
             JSON.stringify({
@@ -172,6 +176,9 @@ export const app = new Elysia()
             }),
           );
           ws.unsubscribe(ws.data.params.id);
+          if (updated && updated.users.length == 0) {
+            await WaitingRoom.findByIdAndDelete(ws.data.params.id);
+          }
         },
         async message(ws, message) {
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);

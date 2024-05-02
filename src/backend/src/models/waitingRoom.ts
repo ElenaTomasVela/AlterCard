@@ -4,12 +4,10 @@ import { IPopulatedUser } from "./user";
 
 export interface IWaitingRoom {
   host: mongoose.Types.ObjectId;
-  users: [
-    {
-      user: mongoose.Types.ObjectId;
-      ready: boolean;
-    },
-  ];
+  users: {
+    user: mongoose.Types.ObjectId;
+    ready: boolean;
+  }[];
   houseRules: string[];
   deck: mongoose.Types.ObjectId;
 }
