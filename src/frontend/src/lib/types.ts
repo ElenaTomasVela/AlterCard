@@ -84,7 +84,7 @@ export interface IWebsocketMessageServer {
   action:
     | "playerJoined"
     | "playerLeft"
-    | "startGame"
+    | "gameStarted"
     | "ready"
     | "addRule"
     | "removeRule";

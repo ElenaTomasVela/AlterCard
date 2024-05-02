@@ -8,7 +8,7 @@ import {
   waitForSocketConnection,
   waitForSocketMessage,
 } from "@/lib/utils";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   HouseRule,
   HouseRuleDetails,
@@ -93,6 +93,7 @@ export const WaitingRoom = () => {
   const [socket, setSocket] = useState<WebSocket>();
   const { roomId } = useParams();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const setPlayerReady = (player: string, ready: boolean) => {
     setRoom((r) => {
@@ -171,7 +172,8 @@ export const WaitingRoom = () => {
             };
           });
           break;
-        case "startGame":
+        case "gameStarted":
+          navigate("/game/" + msgObject.data);
           break;
         case "ready":
           if (typeof msgObject.data !== "boolean") return;
@@ -220,6 +222,11 @@ export const WaitingRoom = () => {
     }
   };
 
+  const startGame = () => {
+    if (!socket || !user) return;
+    socket.send(JSON.stringify({ action: "start" }));
+  };
+
   return (
     <>
       <div className="flex flex-col gap-5">
@@ -260,7 +267,9 @@ export const WaitingRoom = () => {
               I'm ready
             </label>
           </span>
-          <Button>Start Game</Button>
+          {user == room?.host.username && (
+            <Button onClick={() => startGame()}>Start Game</Button>
+          )}
         </span>
       </div>
     </>

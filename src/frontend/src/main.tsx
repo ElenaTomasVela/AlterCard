@@ -10,6 +10,7 @@ import { Login } from "./views/Login";
 import { WaitingRoom } from "./views/WaitingRoom";
 import { UserRoute } from "./components/UserRoute";
 import { RoomListing } from "./views/RoomListing";
+import { Game } from "./views/Game.tsx";
 
 const router = createBrowserRouter([
   {
@@ -39,6 +40,16 @@ const router = createBrowserRouter([
           {
             path: ":roomId",
             element: <WaitingRoom />,
+          },
+        ],
+      },
+      {
+        path: "game",
+        element: <UserRoute />,
+        children: [
+          {
+            path: ":gameId",
+            element: <Game />,
           },
         ],
       },
