@@ -7,9 +7,26 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL,
-  headers: {
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-    "Content-Type": "application/json",
-  },
+  baseURL: "http://" + import.meta.env.VITE_BACKEND_URL,
+  withCredentials: true,
 });
+
+export const waitForSocketConnection = (socket: WebSocket) => {
+  return new Promise<void>((resolve, reject) => {
+    if (socket.readyState !== WebSocket.OPEN) {
+      socket.addEventListener("open", () => resolve());
+      socket.addEventListener("error", () => reject());
+      socket.addEventListener("close", () => reject());
+    } else {
+      resolve();
+    }
+  });
+};
+
+export const waitForSocketMessage = (socket: WebSocket) => {
+  return new Promise<string>((resolve) => {
+    socket.addEventListener("message", (event) => resolve(event.data), {
+      once: true,
+    });
+  });
+};

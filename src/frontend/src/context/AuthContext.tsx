@@ -1,4 +1,4 @@
-import { createContext, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import axios from "axios";
 import { User } from "@/lib/types";
 
@@ -16,31 +16,40 @@ export const AuthContext = createContext<AuthContextType | undefined>(
 export const AuthProvider = ({ children }: { children: JSX.Element }) => {
   const [user, setUser] = useState<string | undefined>();
 
+  useEffect(() => {
+    const localUser = localStorage.getItem("user");
+    if (localUser) setUser(localUser);
+  }, []);
+
   const signup = async (userData: User) => {
     const response = await axios.post(
-      `${import.meta.env.VITE_BACKEND_URL}/user/`,
+      `http://${import.meta.env.VITE_BACKEND_URL}/user/`,
       userData,
+      { withCredentials: true },
     );
     if (response.status == 200) {
-      localStorage.setItem("token", response.data);
+      // localStorage.setItem("token", response.data);
+      localStorage.setItem("user", userData.username);
       setUser(userData.username);
     }
-    return response;
   };
 
   const login = async (userData: User) => {
     const response = await axios.post(
-      `${import.meta.env.VITE_BACKEND_URL}/user/login`,
+      `http://${import.meta.env.VITE_BACKEND_URL}/user/login`,
       userData,
+      { withCredentials: true },
     );
     if (response.status == 200) {
-      localStorage.setItem("token", response.data);
+      // localStorage.setItem("token", response.data);
+      localStorage.setItem("user", userData.username);
       setUser(userData.username);
     }
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
+    // localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setUser(undefined);
   };
 
