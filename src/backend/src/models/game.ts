@@ -64,11 +64,21 @@ const GameSchema = new mongoose.Schema({
   ],
 });
 
+export enum GameAction {
+  draw = "DRAW",
+  play = "PLAY",
+  lastCard = "LAST_CARD",
+  accuse = "ACCUSE",
+  chooseColor = "CHOOSE_COLOR",
+}
+
 export const Game = mongoose.model("Game", GameSchema);
 
 export const gameFromWaitingRoom = (waitingRoom: IWaitingRoom) => {
   //TODO: add card shuffling and initial player hands
-  const players = waitingRoom.users.map((u) => <IPlayer>{ user: u._id });
+  const players = waitingRoom.users.map(
+    (u) => <IPlayer>{ user: u.user, hand: [] },
+  );
   const game = new Game({
     players: players,
     houseRules: waitingRoom.houseRules,

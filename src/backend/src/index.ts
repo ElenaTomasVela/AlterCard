@@ -2,12 +2,14 @@ import { jwt } from "@elysiajs/jwt";
 import { Server } from "bun";
 import swagger from "@elysiajs/swagger";
 import { Elysia, NotFoundError, ValidationError, t } from "elysia";
-import { checkCredentials, encryptUser, tUser } from "./models/user";
+import { User, checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
 import { WaitingRoom } from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
-import { gameFromWaitingRoom } from "./models/game";
+import { Game, GameAction, gameFromWaitingRoom } from "./models/game";
 import { houseRule } from "./models/houseRule";
+import { CardColor } from "./models/card";
+import mongoose from "mongoose";
 
 // Typescript needs to know that the env variables are defined
 declare module "bun" {
@@ -68,7 +70,7 @@ export const app = new Elysia()
     return app
       .post(
         "/",
-        async ({ jwtauth, body }) => {
+        async ({ jwtauth, body, cookie: { authorization } }) => {
           const user = await encryptUser(body);
           await user.save();
 
@@ -76,7 +78,8 @@ export const app = new Elysia()
             username: user.username,
             id: user.id,
           });
-          return token;
+          authorization.set({ value: token, sameSite: true, path: "/" });
+          return "success";
         },
         { body: "user" },
       )
@@ -101,6 +104,8 @@ export const app = new Elysia()
   .resolve(async ({ jwtauth, cookie: { authorization } }) => {
     const user = await jwtauth.verify(authorization.value);
     if (!user) throw new AuthError("Unauthorized");
+    const dbUser = User.findById(user.id);
+    if (!dbUser) throw new NotFoundError("User not found");
 
     return { user };
   })
@@ -111,11 +116,10 @@ export const app = new Elysia()
       })
       .post("/", async ({ user }) => {
         const waitingRoom = new WaitingRoom({
-          host: user.id,
-          users: [{ user: user.id }],
+          host: new mongoose.Types.ObjectId(user.id),
+          users: [{ user: new mongoose.Types.ObjectId(user.id) }],
         });
         await waitingRoom.save();
-
         return waitingRoom.id;
       })
       .get("/:id", async ({ params }) => {
@@ -185,19 +189,20 @@ export const app = new Elysia()
           try {
             switch (message.action) {
               case "start":
-                if (waitingRoom!.host.toString() !== ws.data.user.id) {
-                  const game = gameFromWaitingRoom(waitingRoom!);
-                  await game.save();
-
-                  serverInstance?.publish(
-                    ws.data.params.id,
-                    JSON.stringify({
-                      action: "gameStarted",
-                    }),
-                  );
-                } else {
+                if (waitingRoom!.host.toString() != ws.data.user.id)
                   throw new Error("Only the host can start the game");
-                }
+
+                const game = gameFromWaitingRoom(waitingRoom!);
+                await game.save();
+
+                serverInstance?.publish(
+                  ws.data.params.id,
+                  JSON.stringify({
+                    action: "gameStarted",
+                    data: game.id,
+                  }),
+                );
+
                 break;
               case "addRule":
                 if (waitingRoom!.host.toString() !== ws.data.user.id)
@@ -279,11 +284,53 @@ export const app = new Elysia()
                 break;
             }
           } catch (e) {
-            ws.send(e);
+            ws.send(e.message);
           }
         },
       });
   })
+  .group("/game", (app) =>
+    app
+      .get("/:id", async ({ params: { id } }) => {
+        const game = await Game.findById(id)
+          .populate("discardPile")
+          .populate("drawPile")
+          .populate({
+            path: "players",
+            populate: { path: "user", select: "username" },
+          })
+          .populate({
+            path: "players",
+            populate: { path: "user", select: "username" },
+          })
+          .lean();
+        return game;
+      })
+      .ws("/:id/ws", {
+        body: t.Object({
+          action: t.Enum(GameAction),
+          data: t.Optional(
+            t.Union([t.String(), t.Number(), t.Enum(CardColor)]),
+          ),
+        }),
+        message(ws, message) {
+          switch (message.action) {
+            case GameAction.draw:
+              break;
+            case GameAction.play:
+              break;
+            case GameAction.lastCard:
+              break;
+            case GameAction.accuse:
+              break;
+            case GameAction.chooseColor:
+              break;
+            default:
+              break;
+          }
+        },
+      }),
+  )
   .listen(3000);
 
 serverInstance = app.server;
