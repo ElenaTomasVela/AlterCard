@@ -79,7 +79,12 @@ export const app = new Elysia()
             username: user.username,
             id: user.id,
           });
-          authorization.set({ value: token, sameSite: "none", path: "/" });
+          authorization.set({
+            value: token,
+            sameSite: "none",
+            path: "/",
+            secure: true,
+          });
           return "success";
         },
         { body: "user" },
@@ -93,7 +98,12 @@ export const app = new Elysia()
               username: body.username,
               id: userId,
             });
-            authorization.set({ value: token, sameSite: "none", path: "/" });
+            authorization.set({
+              value: token,
+              sameSite: "none",
+              path: "/",
+              secure: true,
+            });
             return "success";
           } else {
             return error(400, "Invalid credentials");
