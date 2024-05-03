@@ -19,6 +19,12 @@
   \item Nombre de usuario
   \item Contraseña
 \end{itemize}
+\subsection{Sala de espera}
+\begin{itemize}
+  \item Usuarios en la sala
+  \item Reglas de la casa
+  \item Baraja escogida
+\end{itemize}
 \subsection{Cartas}
 \begin{itemize}
   \item Color
@@ -37,6 +43,17 @@
   \item Cartas en mano
 \end{itemize}
 
+\section{Tipos de usuario}
+En la aplicación, solo habrá una distinción de los usuarios en la sala de espera.
+En los demás aspectos, todos los usuarios tendrán los mismos permisos.
+
+En la sala de espera, habrá 2 roles distintos:
+\begin{description}
+  \item[Jugador normal:] Usuario que únicamente puede marcar si está listo o no y mandar mensajes 
+    en el chat.
+  \item[Huésped:] Usuario que ha creado la sala de espera y puede modificar
+    las reglas y mazo a usar en el juego.
+\end{description}
 
 \section{Historias de usuario}
 \subsection{Autenticación de usuario}
@@ -130,332 +147,62 @@ El jugador huésped de una sala de espera hace click en la casilla de la regla d
 
 Como jugador dentro de una partida, quiero poder especificar que digo “Uno” cuando me quedo con 1 carta en mano para poder cumplir con las normas del juego. 
 
+\subsubsection{Configurar mazo}
+
+Como usuario, quiero poder configurar el mazo de cartas de la partida antes de comenzarla,
+para customizar la experiencia del juego a mi gusto.
+
+\subparagraph{Caso positivo}
+
+El jugador huésped de una sala de espera hace click en una casilla correspondiente al
+mazo que se quiera escoger. Cuando se inicie el juego, este usará la baraja seleccionada.
+
+\subsection{Juego}
+
+Como usuario, quiero poder jugar al juego de cartas con otros jugadores, para poder
+socializar y divertirme.
+
+\subsection{Chat}
+
+Como usuario, quiero poder comunicarme con otros jugadores en la partida y en la sala de espera, para así
+poder socializar durante esta y coordinarme con los demás jugadores para coordinarnos en
+las customizaciones que queramos aplicar.
+
+\subparagraph{Caso positivo}
+
+El jugador dentro de una sala de espera rellena un campo de texto para el chat y le da al botón de enviar.
+Los demás jugadores en la sala reciben el mensaje en la sección del chat.
+
+
+\subparagraph{Caso positivo}
+
+El jugador dentro de un juego rellena un campo de texto para el chat y le da al botón de enviar.
+Los demás jugadores en la sala reciben el mensaje en la sección del chat.
+
 \section{Matriz de trazabilidad de requisitos} % (fold)
 
-\begin{longtable}{|L|L|L|L|L|}
+\begin{tabular}{|L|L|L|L|}
 
 \hline
-ID de requisito & Descripción & ID de la prueba & Descripción de la prueba & Resultado esperado \\
-\hline
-\endhead
-
-\hline
-\endfoot
-
-
-\req  &
-  El usuario deberá poder registrarse e iniciar sesión en el sistema &
-  \reqcase &
-  El usuario sin autenticar ingresa datos correctos para iniciar sesión &
-  El usuario inicia sesión correctamente \\
-\cline{3-5}
-
- &
-&
-  \reqcase &
-  El usuario sin autenticar ingresa datos incorrectos para iniciar sesión &
-  El usuario no inicia sesión y se le muestra que no ha podido iniciar sesión \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  El usuario sin autenticar ingresa datos correctos para registrarse &
-  El usuario se registra en el sistema e inicia sesión, volviendo a la pantalla en la que estaba antes \\
-\cline{3-5}
-
-& &
-  \reqcase &
-  El usuario sin autenticar ingresa un nombre de usuario ya existente &
-  El usuario no puede registrarse y se le informa que ese nombre de usuario ya existe                                                              \\
+Requisitos & Entorno de ocio & Socialización & Experiencia customizable \\
 \hline
 
-
-\req & El usuario podrá cerrar sesión en el sistema &
-  \reqcase &
-  El usuario autenticado hace click en un botón de cerrar sesión &
-  El usuario cierra sesión correctamente \\
-& &
-  \reqcase &
-  El usuario sin autenticar accede a la URL de cerrar sesión &
-  No pasa nada \\
+Autenticación de usuario & & & \\
+\hline
+Inicio de sesión & & & \\
+\hline
+Sala de espera & &\checkmark & \checkmark \\
+\hline
+Configuración reglas de la casa & & &\checkmark \\
+\hline
+Configuración mazos de cartas & & & \checkmark  \\
+\hline
+Chat & \checkmark & \checkmark & \\
+\hline
+Juego & \checkmark & \checkmark & \\
 \hline
 
-
-\req & El usuario podrá crear una sala de espera &
-  \reqcase &
-  El usuario autenticado hace click en crear sala &
-  La sala se crea correctamente y el usuario se redirige a la nueva sala \\
-\cline{3-5}
-
-& &
-  \reqcase &
-  El usuario no autenticado hace click en crear sala &
-  La sala no se crea y se redirige el usuario a la página de inicio de sesión, indicando que debe iniciar sesión \\
-\hline
-
-\req &
-  El usuario podrá unirse a una sala de espera &
-  \reqcase & El usuario autenticado escribe el código de sala y hace click en un botón de unirse                                                                               & El usuario se une a la sala correctamente y se redirige a la pantalla correspondiente                                                            \\
-\cline{3-5}
-
- &
-  &
-  \reqcase &
-  El usuario autenticado escribe el código de una sala que no existe y hace click en el botón de unirse &
-  El usuario no se une a ninguna sala y se le muestra un error que le informa que la sala especificada no existe \\
-\cline{3-5}
-
-& &
-  \reqcase &
-  El usuario no autenticado escribe el código de una sala válida y hace click en el botón de unirse &
-  El usuario se redirige a la pantalla de iniciar sesión, informándole que debe iniciar sesión \\
-\hline
-
-
-\req & El usuario dentro de una sala de espera podrá marcar que está listo para empezar &
-  \reqcase &
-  El usuario que no está listo dentro de una sala de espera hace click en un botón de “Listo” &
-  El estado del usuario se actualiza a “listo” y se muestra a todos los usuarios en la sala \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  El usuario que está listo dentro de una sala hace click en el botón de “Listo” &
-  El estado del usuario se actualiza a “no listo” y se muestra a todos los usuarios en la sala \\
-\hline
-
-\req & El usuario anfitrión de una sala de espera podrá decidir comenzar el juego &
-  \reqcase &
-  El usuario anfitrión dentro de una sala de espera hace click en el botón de “Empezar partida”, estando los demás usuarios listos &
-  El juego comienza con todos los usuarios siendo redirigidos como jugadores a la partida \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  El usuario anfitrión dentro de una sala hace click en el botón de “Empezar partida”, pero un usuario no está listo &
-  El juego no comienza, sino que se muestra un mensaje informando que todos los usuarios deben estar listos \\
-
-\cline{3-5}
-&
-  &
-  \reqcase &
-  El usuario anfitrión dentro de una sala hace click en el botón de “Empezar partida”, pero no hay otros usuarios en la sala &
-  El juego no comienza, sino que se muestra un mensaje informando que se necesitan más jugadores para iniciar el juego \\
-
-\cline{3-5}
- &
-  &
-  \reqcase &
-  El usuario no anfitrión dentro de una sala de espera intenta acceder a la URL de iniciar partida &
-  El juego no comienza, sino que se muestra al usuario un error informándole de que no es el huésped de la sala \\
-\hline
-
-\req &
- El usuario podrá salir de una sala de espera, transfiriendo su rol de anfitrión a otro usuario si aplica &
-\reqcase &
-El usuario anfitrión dentro de una sala con otros usuarios hace click en el botón de “Salir” &
-El usuario se elimina de la sala y el rol de anfitrión se transfiere a cualquier otro usuario de la sala \\
-
-\cline{3-5}
-&
-  &
-  \reqcase &
-  El usuario no anfitrión dentro de una sala de espera hace click en el botón de “Salir” &
-  El usuario se elimina de la sala \\
-\hline
-
-\req & Al salir el último usuario de una sala de espera, esta se borrará &
-  \reqcase &
-  El único usuario dentro de una sala de espera hace click en el botón de “Salir” &
-  La sala se borra \\
-\hline
-
-\req & El usuario anfitrión de una sala de espera podrá escoger las reglas de la casa con las que jugar &
-  \reqcase &
-  El usuario anfitrión dentro de una sala de espera hace click en una checkbox correspondiente a la regla de intercepción &
-  Se configura la partida a crear para tener habilitada la regla de intercepción \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  El usuario anfitrión de una sala de espera no habilita ninguna regla &
-  La partida se iniciará sin ninguna regla especial habilitada \\
-\hline
-
-\req & Las reglas del juego deberán cumplirse dentro de una partida &
-  \reqcase &
-  Se comienza una partida con varios jugadores &
-  Se entregarán 7 cartas a la mano de cada jugador. Se pone una carta en la pila de descartes. \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, comienza el turno de un jugador &
-  Se le entrega una carta de la baraja \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, todos los jugadores se quedan sin cartas excepto 1 de ellos &
-  Se termina la partida \\
-\hline
-
-\req & El usuario dentro de una partida deberá poder jugar cartas &
-  \reqcase &
-  En una partida, en el turno de un jugador, este escoge una carta con el mismo color o símbolo que la de la pila de descarte &
-  La carta se mueve de la mano del jugador a la pila de descartes \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, en el turno de un jugador, este escoge jugar una carta de distinto número y símbolo que la de la pila de descarte, haciendo click en ella &
-  La carta no se juega \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, un jugador intenta jugar una carta haciendo click en ella fuera de su turno &
-  La carta no se juega \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, un jugador juega un comodín durante su turno &
-  La carta se mueve correctamente y se le pide al jugador escoger un color                                                                         \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, un jugador juega una carta de robar cartas &
-  El siguiente jugador en el orden de turnos recibirá el número indicado de cartas del mazo según la carta jugada indique y su turno será omitido  \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, un jugador juega una carta de omitir turno &
-  El turno del siguiente jugador será omitido \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, un jugador juega una carta de invertir orden de turnos &
-  El orden de turnos se invertirá de horario a antihorario o viceversa \\
-\hline
-
-\req & El usuario dentro de una partida podrá robar cartas cuando sea necesario &
-  \reqcase &
-  En una partida, en el turno de un jugador, este decide robar una carta &
-  El jugador recibirá una carta del mazo \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, en el turno de un jugador, este ha robado una carta carta jugable y decide jugarla &
-  El jugador jugará esa carta de su mano y se pondrá en la pila de descartes \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, en el turno de un jugador, este ha robado una carta jugable de la baraja y decide no jugarla &
-  El jugador deberá robar una carta más de la baraja y pasar su turno al siguiente jugador \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, en el turno de un jugador, este ha robado una carta no jugable &
-  El jugador no podrá jugar la carta, por lo que tendrá que robar una carta más y pasar su turno \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, en el turno de un jugador, este ha robado una carta e intenta jugar otra carta desde su mano &
-  La carta no se juega. \\
-\hline
-
-\req & El usuario dentro de una partida deberá poder anunciar que le queda una única carta &
-  \reqcase &
-  En una partida, en el turno de un jugador con 2 cartas, con al menos una de ellas jugable, decide anunciar que le queda una carta &
-  Se marca que el jugador ha anunciado correctamente \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, en el turno de un jugador con 2 cartas no jugables, decide anunciar que le queda una carta &
-  El anuncio no se realiza. \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, en el turno de un jugador con 2 cartas, al menos una de ellas jugable, anuncia que le queda una carta y decide robar una carta &
-  La carta no se roba. \\
-\hline
-
-\req & El usuario dentro de una partida podrá acusar a otros jugadores para cumplir ciertas normas &
-  \reqcase &
-  En una partida, un jugador, tras jugar una carta se queda con una única carta en su mano, no lo anuncia y otro jugador lo acusa &
-  El jugador acusado debe robar 2 cartas \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, un jugador con 2 cartas juega una de ellas, no lo anuncia, el turno del siguiente jugador termina y otro jugador acusa al primero de no decir uno &
-  No ocurre nada \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, un jugador juega un comodín de robar 4 cartas teniendo otras cartas jugables de otro tipo y otro jugador lo acusa de ello &
-  El acusado roba 4 cartas, y el siguiente jugador en el orden de turnos no tiene que saltarse su turno ni robar las cartas especificadas \\
-\cline{3-5}
-
-&
-  &
-  \reqcase &
-  En una partida, un jugador juega un comodín de robar 4 cartas sin tener otras cartas jugables de otro tipo y otro jugador lo acusa de ello &
-  El jugador acusador roba 6 cartas, y el siguiente jugador en el orden de turnos no tiene que saltarse su turno ni robar las cartas especificadas \\
-\hline
-
-\req &
-  El usuario dentro de una partida deberá poder escoger el color a aplicar al jugar un comodín &
-  \reqcase &
-  A &
-  A \\
-\hline
-
-\req &
-  El usuario deberá poder anunciar que le queda una sola carta en mano &
-  \reqcase &
-  A &
-  A \\
-\hline
-
-
-\req &
-Las reglas de la casa deberán tener efecto si están activadas para la partida &
-\reqcase &
- & 
-
-\end{longtable}
+\end{tabular}
 
 % section  (end)
 
@@ -476,7 +223,7 @@ Se realizará usando MongoDB para una base de datos NoSQL,
 debido a que puede acomodar más fácilmente la estructura del juego,
 comparado con una base de datos relacional.
 
-Esto también resulta en mayor rendimiento, ya que se evitan operaciones de unión de tablas.
+Esto también resulta en mayor rendimiento, ya que se evitan algunas operaciones de unión de tablas.
 
 \paragraph{Esquema de la base de datos}
 
@@ -492,12 +239,13 @@ Al mismo tiempo, se incorporará Bun,
 ya que provee mayor rendimiento y soporte nativo para TypeScript,
 así como otras funcionalidades como la ejecución de tests. 
 
-Como framework, se hará uso de Elysia como framework de Backend, ya que está intencionado para su uso con Bun. 
+Como framework, se hará uso de Elysia como framework de Backend, ya que está intencionado para su uso con Bun
+y es soportado por varias plataformas de despliegue. 
 
 \paragraph{Documentación de la API:}
 
-La API del servidor se documentará con las especificaciones de OpenAPI para las rutas normales y AsyncAPI para las rutas con WebSockets.
-La estructura consistirá de las siguintes rutas:
+La API del servidor se documentará con las especificaciones de OpenAPI para las rutas normales.
+Las rutas de WebSocket se documentarán manualmente.
 
 \subparagraph{Rutas de la API REST:}
 
@@ -535,13 +283,20 @@ La estructura consistirá de las siguintes rutas:
 
 Se realizará también con JavaScript y Bun, por razones similares a las de la capa de servidor. 
 
-Se usará el framework de React debido a su gran cantidad de documentación y popularidad, así como por la experiencia previa que se ha tenido con dicho framework. 
+Se usará el framework de React debido a su gran cantidad de documentación y popularidad,
+así como por la experiencia previa que se ha tenido con dicho framework. 
 
-Adicionalmente, otras tecnologías que se usarán en este apartado son Vite para utilidades de desarrollo, y Tailwind y la librería de primitivos de Radix. 
+Adicionalmente, otras tecnologías que se usarán en este apartado son Vite para
+utilidades de desarrollo, y para el estilado se usará Tailwind, así como Shadcn.ui.
 
-Tailwind se ha escogido debido a que simplifica el proceso de diseño de estilos, y gracias a los componentes de React se pueden abstraer y reutilizar fácilmente a través de toda la aplicación. 
+Tailwind se ha escogido debido a que simplifica el proceso de diseño de estilos,
+y gracias a los componentes de React se pueden abstraer y reutilizar fácilmente
+a través de toda la aplicación. 
 
-La librería de primitivos de Radix, considerada una librería de componentes “headless”, se ha escogido debido a que provee componentes funcionales sin estilo, con un enfoque en la customización. 
+Shacn.ui, por otro lado, se ha escogido debido a que proporciona componentes
+que se instalan directamente en el código en vez de depender de una librería externa.
+Esto logra que los componentes sean muy customizables y se puedan usar como punto de partida,
+ya que proveen los detalles más difíciles como la accesibilidad ya integrados.
 
 \paragraph{Mockups}
 
@@ -558,6 +313,12 @@ La librería de primitivos de Radix, considerada una librería de componentes �
 \begin{center}
   \includegraphics[width=1\textwidth]{img/Mockup Sign Up}
   \captionof{figure}{Mockup de la pantalla de registro} \label{fig:signupmockup}
+\end{center}
+
+
+\begin{center}
+  \includegraphics[width=1\textwidth]{img/Mockup Waiting Room}
+  \captionof{figure}{Mockup de la pantalla de sala de espera} \label{fig:waitingroommockup}
 \end{center}
 
 \begin{center}
