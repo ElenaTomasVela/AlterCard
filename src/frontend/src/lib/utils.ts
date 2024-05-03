@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const api = axios.create({
-  baseURL: "http://" + import.meta.env.VITE_BACKEND_URL,
+  baseURL: "https://" + import.meta.env.VITE_BACKEND_URL,
   withCredentials: true,
 });
 
