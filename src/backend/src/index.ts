@@ -44,6 +44,7 @@ export const app = new Elysia()
   )
   .use(
     cors({
+      credentials: true,
       origin: process.env.FRONTEND_URL,
       allowedHeaders: "Content-Type",
     }),
@@ -78,7 +79,7 @@ export const app = new Elysia()
             username: user.username,
             id: user.id,
           });
-          authorization.set({ value: token, sameSite: true, path: "/" });
+          authorization.set({ value: token, sameSite: "none", path: "/" });
           return "success";
         },
         { body: "user" },
@@ -92,7 +93,7 @@ export const app = new Elysia()
               username: body.username,
               id: userId,
             });
-            authorization.set({ value: token, sameSite: true, path: "/" });
+            authorization.set({ value: token, sameSite: "none", path: "/" });
             return "success";
           } else {
             return error(400, "Invalid credentials");
