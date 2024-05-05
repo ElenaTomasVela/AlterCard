@@ -31,6 +31,11 @@ const users = [
   },
 ];
 
+let token1;
+let token2;
+
+let room;
+
 beforeAll(async () => {
   await mongoose.connection.dropDatabase();
   const encryptedUsers = await Promise.all(users.map((u) => encryptUser(u)));
@@ -179,20 +184,19 @@ describe("Room", () => {
   });
 
   test.skip("Authenticated room get", async () => {
-    const { data: token, status: loginStatus } = await api.user.login.post(
-      users[1],
-    );
+    const { response } = await api.user.login.post(users[1]);
+    const token = getCookieFromResponse(response)["authorization"];
 
     const roomId = (await WaitingRoom.findOne())!.id;
-    const response = await api.room(roomId).get({
+    const { data, status } = await api.room(roomId).get({
       headers: {
-        authorization: `Bearer ${token}`,
+        Cookie: `authorization=${token}`,
         contentType: "application/json",
       },
     });
 
-    expect(response.status).toBe(200);
-    expect(response.data!._id).toBe(roomId);
+    expect(status).toBe(200);
+    expect(data).toBe(roomId);
   });
 
   test("Authenticated room join", async () => {
@@ -307,7 +311,7 @@ describe("Room", () => {
     const readyBefore = waitingRoomBefore!.users[0].ready;
     const readyAfter = waitingRoomAfter!.users[0].ready;
 
-    expect(message.data).toBe(true);
+    expect(message.data).toBe(users[2].username);
     expect(readyAfter).toBe(!readyBefore);
   });
   test.skip("Player not ready", async () => {});
