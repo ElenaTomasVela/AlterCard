@@ -4,7 +4,13 @@ import swagger from "@elysiajs/swagger";
 import { Elysia, NotFoundError, ValidationError, t } from "elysia";
 import { User, checkCredentials, encryptUser, tUser } from "./models/user";
 import cors from "@elysiajs/cors";
-import { WaitingRoom } from "./models/waitingRoom";
+import {
+  WaitingRoom,
+  tWaitingRoomMessage,
+  IWaitingRoomServerMessage,
+  IWaitingRoomMessage,
+  WaitingRoomServerAction,
+} from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
 import { Game, GameAction, gameFromWaitingRoom } from "./models/game";
 import { houseRule } from "./models/houseRule";
@@ -142,15 +148,7 @@ export const app = new Elysia()
       })
       .ws("/:id/ws", {
         params: t.Object({ id: t.String() }),
-        body: t.Object({
-          action: t.Union([
-            t.Literal("start"),
-            t.Literal("addRule"),
-            t.Literal("removeRule"),
-            t.Literal("ready"),
-          ]),
-          data: t.Optional(t.Union([t.String(), t.Boolean()])),
-        }),
+        body: tWaitingRoomMessage,
         async beforeHandle({ params }) {
           const waitingRoom = await WaitingRoom.findById(params.id);
           if (!waitingRoom) throw new NotFoundError();
@@ -166,15 +164,18 @@ export const app = new Elysia()
             await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
               $push: { users: { user: ws.data.user.id } },
             });
+
+            const response: IWaitingRoomServerMessage = {
+              action: WaitingRoomServerAction.playerJoined,
+              data: ws.data.user.username,
+            };
             serverInstance?.publish(
               ws.data.params.id,
-              JSON.stringify({
-                action: "playerJoined",
-                data: ws.data.user.username,
-              }),
+              JSON.stringify(response),
             );
           }
         },
+
         async close(ws) {
           const updated = await WaitingRoom.findByIdAndUpdate(
             ws.data.params.id,
@@ -183,20 +184,23 @@ export const app = new Elysia()
             },
             { new: true },
           );
-          serverInstance?.publish(
-            ws.data.params.id,
-            JSON.stringify({
-              action: "playerLeft",
-              data: ws.data.user.username,
-            }),
-          );
+
+          const response: IWaitingRoomServerMessage = {
+            action: WaitingRoomServerAction.playerLeft,
+            data: ws.data.user.username,
+          };
+
+          serverInstance?.publish(ws.data.params.id, JSON.stringify(response));
+
           ws.unsubscribe(ws.data.params.id);
           if (updated && updated.users.length == 0) {
             await WaitingRoom.findByIdAndDelete(ws.data.params.id);
           }
         },
+
         async message(ws, message) {
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
+          let response: IWaitingRoomServerMessage;
           try {
             switch (message.action) {
               case "start":
@@ -206,15 +210,17 @@ export const app = new Elysia()
                 const game = gameFromWaitingRoom(waitingRoom!);
                 await game.save();
 
+                response = {
+                  action: WaitingRoomServerAction.start,
+                  data: game.id,
+                };
+
                 serverInstance?.publish(
                   ws.data.params.id,
-                  JSON.stringify({
-                    action: "gameStarted",
-                    data: game.id,
-                  }),
+                  JSON.stringify(response),
                 );
-
                 break;
+
               case "addRule":
                 if (waitingRoom!.host.toString() !== ws.data.user.id)
                   throw new Error("Only the host can add rules");
@@ -232,18 +238,18 @@ export const app = new Elysia()
                   waitingRoom!.houseRules.push(message.data);
                   await waitingRoom!.save();
 
-                  ws.publish(
-                    ws.data.params.id,
-                    JSON.stringify({
-                      action: "addRule",
-                      data: message.data,
-                    }),
-                  );
+                  const response: IWaitingRoomServerMessage = {
+                    action: WaitingRoomServerAction.addRule,
+                    data: message.data,
+                  };
+
+                  ws.publish(ws.data.params.id, JSON.stringify(response));
                 }
                 break;
               case "removeRule":
                 if (waitingRoom!.host.toString() !== ws.data.user.id)
                   throw new Error("Only the host can remove rules");
+
                 if (
                   !message.data ||
                   typeof message.data !== "string" ||
@@ -254,20 +260,21 @@ export const app = new Elysia()
                     t.Enum(houseRule),
                     message.data,
                   );
+
                 if (waitingRoom!.houseRules.includes(message.data)) {
                   await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
                     $pull: { houseRules: message.data },
                   });
 
-                  ws.publish(
-                    ws.data.params.id,
-                    JSON.stringify({
-                      action: "removeRule",
-                      data: message.data,
-                    }),
-                  );
+                  response = {
+                    action: WaitingRoomServerAction.removeRule,
+                    data: message.data,
+                  };
+
+                  ws.publish(ws.data.params.id, JSON.stringify(response));
                 }
                 break;
+
               case "ready":
                 if (typeof message.data !== "boolean")
                   throw new ValidationError(
@@ -282,19 +289,18 @@ export const app = new Elysia()
                   },
                   { $set: { "users.$.ready": message.data } },
                 );
-                ws.publish(
-                  ws.data.params.id,
-                  JSON.stringify({
-                    action: "ready",
-                    data: message.data,
-                    user: ws.data.user.username,
-                  }),
-                );
+
+                response = {
+                  action: WaitingRoomServerAction.ready,
+                  data: message.data,
+                  user: ws.data.user.username,
+                };
+                ws.publish(ws.data.params.id, JSON.stringify(response));
                 break;
               default:
                 break;
             }
-          } catch (e) {
+          } catch (e: any) {
             ws.send(e.message);
           }
         },

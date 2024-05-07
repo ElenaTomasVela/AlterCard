@@ -3,12 +3,18 @@ import { app } from "../src";
 import { treaty } from "@elysiajs/eden";
 import mongoose from "mongoose";
 import { IPopulatedUser, User, encryptUser } from "../src/models/user";
-import { WaitingRoom } from "../src/models/waitingRoom";
+import {
+  IWaitingRoomServerMessage,
+  WaitingRoom,
+  WaitingRoomAction,
+  WaitingRoomServerAction,
+} from "../src/models/waitingRoom";
 import {
   getCookieFromResponse,
   waitForSocketConnection,
   waitForSocketMessage,
 } from "./utils";
+import { houseRule } from "../src/models/houseRule";
 
 const api = treaty(app);
 
@@ -252,9 +258,11 @@ describe("Room", () => {
       headers: { Cookie: `authorization=${token2}` },
     });
     await waitForSocketConnection(session2);
-    const message = await waitForSocketMessage(session1);
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IWaitingRoomServerMessage;
 
-    expect(message).toContain("playerJoined");
+    expect(message.action).toBe(WaitingRoomServerAction.playerJoined);
   });
   test("Player leave notified", async () => {
     const waitingRoomBefore = await WaitingRoom.findOne();
@@ -276,10 +284,12 @@ describe("Room", () => {
     await waitForSocketConnection(session2);
 
     session2.close();
-    const message = await waitForSocketMessage(session1);
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IWaitingRoomServerMessage;
     const waitingRoomAfter = await WaitingRoom.findById(waitingRoomBefore!.id);
 
-    expect(message).toContain("playerLeft");
+    expect(message.action).toBe(WaitingRoomServerAction.playerLeft);
     expect(waitingRoomAfter!.users.length).toBe(
       waitingRoomBefore!.users.length - 1,
     );
@@ -305,7 +315,9 @@ describe("Room", () => {
     await waitForSocketConnection(session2);
 
     session1.send(JSON.stringify({ action: "ready", data: true }));
-    const message = JSON.parse(await waitForSocketMessage(session2));
+    const message = JSON.parse(
+      await waitForSocketMessage(session2),
+    ) as IWaitingRoomServerMessage;
 
     const waitingRoomAfter = await WaitingRoom.findById(waitingRoomBefore!.id);
     const readyBefore = waitingRoomBefore!.users[0].ready;
@@ -314,7 +326,40 @@ describe("Room", () => {
     expect(message.data).toBe(users[2].username);
     expect(readyAfter).toBe(!readyBefore);
   });
-  test.skip("Player not ready", async () => {});
+
+  test("Add house rule", async () => {
+    const waitingRoomBefore = await WaitingRoom.findOne();
+    const roomId = waitingRoomBefore!.id;
+    const { response: response1 } = await api.user.login.post(users[1]);
+    const { response: response2 } = await api.user.login.post(users[2]);
+    const token1 = getCookieFromResponse(response1)["authorization"];
+    const token2 = getCookieFromResponse(response2)["authorization"];
+
+    const session1 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({ action: "addRule", data: houseRule.stackDraw }),
+    );
+    const message = JSON.parse(
+      await waitForSocketMessage(session2),
+    ) as IWaitingRoomServerMessage;
+
+    const waitingRoomAfter = await WaitingRoom.findById(waitingRoomBefore!.id);
+
+    expect(message.data).toBe(houseRule.stackDraw);
+    expect(waitingRoomAfter!.houseRules.length).toBe(
+      waitingRoomBefore!.houseRules.length + 1,
+    );
+  });
 
   test.skip("Correct game start", async () => {});
   test.skip("Incorrect game start, not ready", async () => {});

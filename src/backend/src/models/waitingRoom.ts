@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { houseRule } from "./houseRule";
 import { IPopulatedUser } from "./user";
+import { t } from "elysia";
 
 export interface IWaitingRoom {
   host: mongoose.Types.ObjectId;
@@ -11,6 +12,40 @@ export interface IWaitingRoom {
   houseRules: string[];
   deck: mongoose.Types.ObjectId;
 }
+
+export enum WaitingRoomAction {
+  start = "start",
+  addRule = "addRule",
+  removeRule = "removeRule",
+  ready = "ready",
+}
+
+export enum WaitingRoomServerAction {
+  start = "start",
+  addRule = "addRule",
+  removeRule = "removeRule",
+  ready = "ready",
+  playerJoined = "playerJoined",
+  playerLeft = "playerLeft",
+}
+
+export interface IWaitingRoomMessage {
+  action: WaitingRoomAction;
+  data?: string | boolean;
+  user?: string;
+}
+
+export interface IWaitingRoomServerMessage {
+  action: WaitingRoomServerAction;
+  data?: string | boolean;
+  user?: string;
+}
+
+export const tWaitingRoomMessage = t.Object({
+  action: t.Enum(WaitingRoomAction),
+  data: t.Optional(t.Union([t.String(), t.Boolean()])),
+  player: t.Optional(t.String()),
+});
 
 const WaitingRoomSchema = new mongoose.Schema<IWaitingRoom>({
   host: {
