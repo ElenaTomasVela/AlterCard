@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import { houseRule } from "./houseRule";
 import { IWaitingRoom } from "./waitingRoom";
+import { CardDeck, ICard } from "./card";
+import { NotFoundError } from "elysia";
+import { dealCards, getFirstNonWild, shuffle } from "../libs/utils";
 
 export interface IPlayer {
   user: mongoose.Types.ObjectId;
@@ -74,14 +77,27 @@ export enum GameAction {
 
 export const Game = mongoose.model("Game", GameSchema);
 
-export const gameFromWaitingRoom = (waitingRoom: IWaitingRoom) => {
-  //TODO: add card shuffling and initial player hands
+export const gameFromWaitingRoom = async (waitingRoom: IWaitingRoom) => {
+  const deck = await CardDeck.findById(waitingRoom.deck);
+  if (!deck) throw new NotFoundError("Deck not found");
+
+  const cards = deck.cards;
   const players = waitingRoom.users.map(
     (u) => <IPlayer>{ user: u.user, hand: [] },
   );
+
+  // Using mutating methods for simplicity
+  shuffle(cards);
+  dealCards(players, cards);
+  const discardPile = getFirstNonWild(cards);
+
   const game = new Game({
     players: players,
     houseRules: waitingRoom.houseRules,
+    discardPile: [discardPile],
+    drawPile: cards,
   });
+
+  game.save();
   return game;
 };

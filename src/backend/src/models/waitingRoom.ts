@@ -18,6 +18,7 @@ export enum WaitingRoomAction {
   addRule = "addRule",
   removeRule = "removeRule",
   ready = "ready",
+  setDeck = "setDeck",
 }
 
 export enum WaitingRoomServerAction {
@@ -29,12 +30,14 @@ export enum WaitingRoomServerAction {
   playerLeft = "playerLeft",
   newHost = "newHost",
   error = "error",
+  setDeck = "setDeck",
 }
 
 export enum WaitingRoomError {
   notTheHost = "notTheHost",
   notEnoughPlayers = "notEnoughPlayers",
   notReady = "notReady",
+  noDeck = "noDeck",
 }
 
 export interface IWaitingRoomMessage {

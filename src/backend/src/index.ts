@@ -17,6 +17,7 @@ import {
   IWaitingRoomMessage,
   WaitingRoomServerAction,
   WaitingRoomError,
+  WaitingRoomAction,
 } from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
 import { Game, GameAction, gameFromWaitingRoom } from "./models/game";
@@ -222,56 +223,64 @@ export const app = new Elysia()
 
         async message(ws, message) {
           const waitingRoom = await WaitingRoom.findById(ws.data.params.id);
-          let response: IWaitingRoomServerMessage;
           try {
             switch (message.action) {
               case "start":
                 if (waitingRoom!.host.toString() != ws.data.user.id) {
-                  response = {
-                    action: WaitingRoomServerAction.error,
-                    data: WaitingRoomError.notTheHost,
-                  };
-                  throw new Error(JSON.stringify(response));
+                  throw new Error(
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.error,
+                      data: WaitingRoomError.notTheHost,
+                    }),
+                  );
                 }
 
                 if (waitingRoom!.users.length < 2) {
-                  response = {
-                    action: WaitingRoomServerAction.error,
-                    data: WaitingRoomError.notEnoughPlayers,
-                  };
-                  throw new Error(JSON.stringify(response));
+                  throw new Error(
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.error,
+                      data: WaitingRoomError.notEnoughPlayers,
+                    }),
+                  );
                 }
 
                 if (waitingRoom!.users.some((u) => !u.ready)) {
-                  response = {
-                    action: WaitingRoomServerAction.error,
-                    data: WaitingRoomError.notReady,
-                  };
-
-                  throw new Error(JSON.stringify(response));
+                  throw new Error(
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.error,
+                      data: WaitingRoomError.notReady,
+                    }),
+                  );
                 }
 
-                const game = gameFromWaitingRoom(waitingRoom!);
-                await game.save();
+                if (!waitingRoom!.deck) {
+                  throw new Error(
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.error,
+                      data: WaitingRoomError.noDeck,
+                    }),
+                  );
+                }
 
-                response = {
-                  action: WaitingRoomServerAction.start,
-                  data: game.id,
-                };
+                const game = await gameFromWaitingRoom(waitingRoom!);
 
                 serverInstance?.publish(
                   ws.data.params.id,
-                  JSON.stringify(response),
+                  JSON.stringify(<IWaitingRoomServerMessage>{
+                    action: WaitingRoomServerAction.start,
+                    data: game.id,
+                  }),
                 );
                 break;
 
               case "addRule":
                 if (waitingRoom!.host.toString() !== ws.data.user.id) {
-                  response = {
-                    action: WaitingRoomServerAction.error,
-                    data: WaitingRoomError.notTheHost,
-                  };
-                  throw new Error(JSON.stringify(response));
+                  throw new Error(
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.error,
+                      data: WaitingRoomError.notTheHost,
+                    }),
+                  );
                 }
                 if (
                   !message.data ||
@@ -287,21 +296,23 @@ export const app = new Elysia()
                   waitingRoom!.houseRules.push(message.data);
                   await waitingRoom!.save();
 
-                  const response: IWaitingRoomServerMessage = {
-                    action: WaitingRoomServerAction.addRule,
-                    data: message.data,
-                  };
-
-                  ws.publish(ws.data.params.id, JSON.stringify(response));
+                  ws.publish(
+                    ws.data.params.id,
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.addRule,
+                      data: message.data,
+                    }),
+                  );
                 }
                 break;
               case "removeRule":
                 if (waitingRoom!.host.toString() !== ws.data.user.id) {
-                  response = {
-                    action: WaitingRoomServerAction.error,
-                    data: WaitingRoomError.notTheHost,
-                  };
-                  throw new Error(JSON.stringify(response));
+                  throw new Error(
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.error,
+                      data: WaitingRoomError.notTheHost,
+                    }),
+                  );
                 }
 
                 if (
@@ -320,12 +331,13 @@ export const app = new Elysia()
                     $pull: { houseRules: message.data },
                   });
 
-                  response = {
-                    action: WaitingRoomServerAction.removeRule,
-                    data: message.data,
-                  };
-
-                  ws.publish(ws.data.params.id, JSON.stringify(response));
+                  ws.publish(
+                    ws.data.params.id,
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.removeRule,
+                      data: message.data,
+                    }),
+                  );
                 }
                 break;
 
@@ -344,12 +356,26 @@ export const app = new Elysia()
                   { $set: { "users.$.ready": message.data } },
                 );
 
-                response = {
-                  action: WaitingRoomServerAction.ready,
-                  data: message.data,
-                  user: ws.data.user.username,
-                };
-                ws.publish(ws.data.params.id, JSON.stringify(response));
+                ws.publish(
+                  ws.data.params.id,
+                  JSON.stringify(<IWaitingRoomServerMessage>{
+                    action: WaitingRoomServerAction.ready,
+                    data: message.data,
+                    user: ws.data.user.username,
+                  }),
+                );
+                break;
+              case WaitingRoomAction.setDeck:
+                if (!message.data || typeof message.data !== "string")
+                  throw new ValidationError(
+                    "message.data",
+                    t.String(),
+                    message.data,
+                  );
+
+                waitingRoom!.deck = new mongoose.Types.ObjectId(message.data);
+                await waitingRoom!.save();
+
                 break;
               default:
                 break;

@@ -23,9 +23,15 @@ export enum CardSymbol {
   draw4 = "DRAW_4",
   skipTurn = "SKIP_TURN",
   reverseTurn = "REVERSE_TURN",
+  changeColor = "CHANGE_COLOR",
 }
 
-const CardSchema = new mongoose.Schema({
+export interface ICard {
+  symbol: CardSymbol;
+  color: CardColor;
+}
+
+const CardSchema = new mongoose.Schema<ICard>({
   symbol: {
     type: String,
     enum: Object.values(CardSymbol),
@@ -39,7 +45,12 @@ const CardSchema = new mongoose.Schema({
 const CardDeckSchema = new mongoose.Schema({
   name: String,
   description: String,
-  cards: [CardSchema],
+  cards: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Card",
+    },
+  ],
 });
 
 export const Card = mongoose.model("Card", CardSchema);

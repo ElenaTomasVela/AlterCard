@@ -18,6 +18,7 @@ import {
 } from "./utils";
 import { houseRule } from "../src/models/houseRule";
 import { Game } from "../src/models/game";
+import { seedCards } from "../src/seeders/seedCards";
 
 const api = treaty(app);
 
@@ -43,12 +44,11 @@ const users = [
 let token1;
 let token2;
 
-let room;
-
 beforeAll(async () => {
   await mongoose.connection.dropDatabase();
   const encryptedUsers = await Promise.all(users.map((u) => encryptUser(u)));
   await User.insertMany(encryptedUsers);
+  seedCards();
 });
 
 describe("Database", () => {
