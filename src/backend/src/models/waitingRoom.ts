@@ -27,6 +27,14 @@ export enum WaitingRoomServerAction {
   ready = "ready",
   playerJoined = "playerJoined",
   playerLeft = "playerLeft",
+  newHost = "newHost",
+  error = "error",
+}
+
+export enum WaitingRoomError {
+  notTheHost = "notTheHost",
+  notEnoughPlayers = "notEnoughPlayers",
+  notReady = "notReady",
 }
 
 export interface IWaitingRoomMessage {

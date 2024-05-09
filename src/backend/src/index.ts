@@ -2,7 +2,13 @@ import { jwt } from "@elysiajs/jwt";
 import { Server } from "bun";
 import swagger from "@elysiajs/swagger";
 import { Elysia, NotFoundError, ValidationError, t } from "elysia";
-import { User, checkCredentials, encryptUser, tUser } from "./models/user";
+import {
+  IUser,
+  User,
+  checkCredentials,
+  encryptUser,
+  tUser,
+} from "./models/user";
 import cors from "@elysiajs/cors";
 import {
   WaitingRoom,
@@ -10,6 +16,7 @@ import {
   IWaitingRoomServerMessage,
   IWaitingRoomMessage,
   WaitingRoomServerAction,
+  WaitingRoomError,
 } from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
 import { Game, GameAction, gameFromWaitingRoom } from "./models/game";
@@ -169,14 +176,12 @@ export const app = new Elysia()
               action: WaitingRoomServerAction.playerJoined,
               data: ws.data.user.username,
             };
-            serverInstance?.publish(
-              ws.data.params.id,
-              JSON.stringify(response),
-            );
+            ws.publish(ws.data.params.id, JSON.stringify(response));
           }
         },
 
         async close(ws) {
+          ws.unsubscribe(ws.data.params.id);
           const updated = await WaitingRoom.findByIdAndUpdate(
             ws.data.params.id,
             {
@@ -185,16 +190,33 @@ export const app = new Elysia()
             { new: true },
           );
 
-          const response: IWaitingRoomServerMessage = {
+          if (updated && updated.users.length == 0) {
+            await WaitingRoom.findByIdAndDelete(ws.data.params.id);
+            return;
+          }
+
+          const playerLeftMessage: IWaitingRoomServerMessage = {
             action: WaitingRoomServerAction.playerLeft,
             data: ws.data.user.username,
           };
+          serverInstance?.publish(
+            ws.data.params.id,
+            JSON.stringify(playerLeftMessage),
+          );
 
-          serverInstance?.publish(ws.data.params.id, JSON.stringify(response));
-
-          ws.unsubscribe(ws.data.params.id);
-          if (updated && updated.users.length == 0) {
-            await WaitingRoom.findByIdAndDelete(ws.data.params.id);
+          if (updated?.host.toString() == ws.data.user.id) {
+            updated.host = updated.users[0].user;
+            await updated.save();
+            updated.populate<{ host: IUser }>("host", "username").then((d) => {
+              const newHostMessage: IWaitingRoomServerMessage = {
+                action: WaitingRoomServerAction.newHost,
+                data: d.host.username,
+              };
+              serverInstance?.publish(
+                ws.data.params.id,
+                JSON.stringify(newHostMessage),
+              );
+            });
           }
         },
 
@@ -204,8 +226,30 @@ export const app = new Elysia()
           try {
             switch (message.action) {
               case "start":
-                if (waitingRoom!.host.toString() != ws.data.user.id)
-                  throw new Error("Only the host can start the game");
+                if (waitingRoom!.host.toString() != ws.data.user.id) {
+                  response = {
+                    action: WaitingRoomServerAction.error,
+                    data: WaitingRoomError.notTheHost,
+                  };
+                  throw new Error(JSON.stringify(response));
+                }
+
+                if (waitingRoom!.users.length < 2) {
+                  response = {
+                    action: WaitingRoomServerAction.error,
+                    data: WaitingRoomError.notEnoughPlayers,
+                  };
+                  throw new Error(JSON.stringify(response));
+                }
+
+                if (waitingRoom!.users.some((u) => !u.ready)) {
+                  response = {
+                    action: WaitingRoomServerAction.error,
+                    data: WaitingRoomError.notReady,
+                  };
+
+                  throw new Error(JSON.stringify(response));
+                }
 
                 const game = gameFromWaitingRoom(waitingRoom!);
                 await game.save();
@@ -222,8 +266,13 @@ export const app = new Elysia()
                 break;
 
               case "addRule":
-                if (waitingRoom!.host.toString() !== ws.data.user.id)
-                  throw new Error("Only the host can add rules");
+                if (waitingRoom!.host.toString() !== ws.data.user.id) {
+                  response = {
+                    action: WaitingRoomServerAction.error,
+                    data: WaitingRoomError.notTheHost,
+                  };
+                  throw new Error(JSON.stringify(response));
+                }
                 if (
                   !message.data ||
                   typeof message.data !== "string" ||
@@ -247,8 +296,13 @@ export const app = new Elysia()
                 }
                 break;
               case "removeRule":
-                if (waitingRoom!.host.toString() !== ws.data.user.id)
-                  throw new Error("Only the host can remove rules");
+                if (waitingRoom!.host.toString() !== ws.data.user.id) {
+                  response = {
+                    action: WaitingRoomServerAction.error,
+                    data: WaitingRoomError.notTheHost,
+                  };
+                  throw new Error(JSON.stringify(response));
+                }
 
                 if (
                   !message.data ||
