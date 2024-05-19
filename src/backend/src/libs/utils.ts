@@ -15,6 +15,10 @@ export function shuffle<T>(arr: T[]): T[] {
   return arr;
 }
 
+export function moveFromStack<T>(source: T[], target: T[], n: number) {
+  target.push(...source.splice(-n).reverse());
+}
+
 export function dealCards(players: IPlayer[], deck: mongoose.Types.ObjectId[]) {
   for (const player of players) {
     player.hand.push(...deck.splice(0, 7));

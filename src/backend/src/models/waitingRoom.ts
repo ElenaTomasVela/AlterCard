@@ -43,7 +43,6 @@ export enum WaitingRoomError {
 export interface IWaitingRoomMessage {
   action: WaitingRoomAction;
   data?: string | boolean;
-  user?: string;
 }
 
 export interface IWaitingRoomServerMessage {

@@ -17,8 +17,23 @@ import {
   waitForSocketMessage,
 } from "./utils";
 import { houseRule } from "../src/models/houseRule";
-import { Game } from "../src/models/game";
+import {
+  Game,
+  GameAction,
+  GameActionServer,
+  IGame,
+  IGameMessage,
+  IGameServerMessage,
+  gameFromWaitingRoom,
+} from "../src/models/game";
 import { seedCards } from "../src/seeders/seedCards";
+import {
+  Card,
+  CardColor,
+  CardDeck,
+  CardSymbol,
+  ICard,
+} from "../src/models/card";
 
 const api = treaty(app);
 
@@ -389,7 +404,9 @@ describe("Room", () => {
     const { response: response2 } = await api.user.login.post(users[2]);
     const token1 = getCookieFromResponse(response1)["authorization"];
     const token2 = getCookieFromResponse(response2)["authorization"];
+    const cardDeck = await CardDeck.findOne();
 
+    // Connection
     const session1 = new WebSocket(`ws://localhost:3000/room/${roomId}/ws`, {
       // @ts-expect-error
       headers: { Cookie: `authorization=${token1}` },
@@ -402,10 +419,17 @@ describe("Room", () => {
     await waitForSocketConnection(session2);
     await waitForSocketMessage(session1);
 
+    // Pre-Game config
     session1.send(
       JSON.stringify({
         action: WaitingRoomAction.ready,
         data: true,
+      } as IWaitingRoomMessage),
+    );
+    session1.send(
+      JSON.stringify({
+        action: WaitingRoomAction.setDeck,
+        data: cardDeck!.id,
       } as IWaitingRoomMessage),
     );
     session2.send(
@@ -416,18 +440,29 @@ describe("Room", () => {
     );
     await waitForSocketMessage(session1);
 
+    // Start
     session1.send(
       JSON.stringify({
         action: WaitingRoomAction.start,
       } as IWaitingRoomMessage),
     );
+
     const message = JSON.parse(
       await waitForSocketMessage(session2),
     ) as IWaitingRoomServerMessage;
 
+    // Correct creation
     const gamesAfter = await Game.find().countDocuments();
     expect(message.action).toBe(WaitingRoomServerAction.start);
     expect(gamesAfter).toBe(gamesBefore + 1);
+
+    // Correct initial state
+    const game = await Game.findById(message.data);
+    expect(game?.players.every((p) => p.hand.length == 7)).toBeTrue();
+    expect(game?.discardPile.length).toBe(1);
+    expect(game?.drawPile.length).toBe(
+      cardDeck!.cards.length - game!.players.length * 7 - 1,
+    );
   });
   test("Incorrect game start, not ready", async () => {
     const waitingRoomBefore = await WaitingRoom.findOne();
@@ -594,11 +629,75 @@ describe("Room", () => {
 });
 
 describe("Game", () => {
-  test.skip("Correct card distribution", async () => {});
+  let token1: string;
+  let token2: string;
+  let game: mongoose.Document & IGame;
+  let blueOne: mongoose.Document & ICard;
+  let redTwo: mongoose.Document & ICard;
+  let yellowOne: mongoose.Document & ICard;
+  beforeAll(async () => {
+    const { response: response1 } = await api.user.login.post(users[1]);
+    const { response: response2 } = await api.user.login.post(users[2]);
+    token1 = getCookieFromResponse(response1)["authorization"];
+    token2 = getCookieFromResponse(response2)["authorization"];
+
+    blueOne = (await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.blue,
+    }))!;
+    redTwo = (await Card.findOne({
+      symbol: CardSymbol.two,
+      color: CardColor.red,
+    }))!;
+    yellowOne = (await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.yellow,
+    }))!;
+  });
+  beforeEach(async () => {
+    WaitingRoom.deleteMany({});
+    Game.deleteMany({});
+
+    const dbUsers = await User.find();
+    const deck = await CardDeck.findOne();
+
+    const waitingRoom = new WaitingRoom({
+      host: dbUsers[0]._id,
+      users: [{ user: dbUsers[0]._id }, { user: dbUsers[1]._id }],
+      deck: deck!._id,
+    });
+    game = await gameFromWaitingRoom(waitingRoom);
+    game.players[0].hand.push(blueOne._id, yellowOne._id);
+    game.discardPile.push(blueOne._id);
+    await game.save();
+  });
   test.skip("Draw when starting turn", async () => {});
   test.skip("Game end when 1 player remaining", async () => {});
 
-  test.skip("Correct play", async () => {});
+  test("Correct play", async () => {
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 6,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session2),
+    ) as IGameServerMessage;
+    expect(message.action).toBe(GameActionServer.playCard);
+  });
   test.skip("Wrong play, unplayable card", async () => {});
   test.skip("Wrong play, out of turn", async () => {});
 

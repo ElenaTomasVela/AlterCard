@@ -20,9 +20,17 @@ import {
   WaitingRoomAction,
 } from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
-import { Game, GameAction, gameFromWaitingRoom } from "./models/game";
+import {
+  Game,
+  GameAction,
+  GameActionServer,
+  GameError,
+  IGame,
+  IGameServerMessage,
+  gameFromWaitingRoom,
+} from "./models/game";
 import { houseRule } from "./models/houseRule";
-import { CardColor } from "./models/card";
+import { CardColor, ICard } from "./models/card";
 import mongoose from "mongoose";
 
 // Typescript needs to know that the env variables are defined
@@ -396,10 +404,6 @@ export const app = new Elysia()
             path: "players",
             populate: { path: "user", select: "username" },
           })
-          .populate({
-            path: "players",
-            populate: { path: "user", select: "username" },
-          })
           .lean();
         return game;
       })
@@ -410,21 +414,53 @@ export const app = new Elysia()
             t.Union([t.String(), t.Number(), t.Enum(CardColor)]),
           ),
         }),
-        message(ws, message) {
+        async open(ws) {
+          ws.subscribe(ws.data.params.id);
+        },
+        async message(ws, message) {
+          const game = await Game.findById(ws.data.params.id);
+          if (!game) throw new NotFoundError("Game not found");
+
           switch (message.action) {
-            case GameAction.draw:
-              break;
-            case GameAction.play:
-              break;
             case GameAction.lastCard:
+              game.announceLastCard(ws.data.user.id);
+              break;
+            case GameAction.pass:
               break;
             case GameAction.accuse:
               break;
-            case GameAction.chooseColor:
+            case GameAction.answerPrompt:
               break;
-            default:
+            case GameAction.playCard:
+              if (!message.data || typeof message.data !== "number")
+                throw new ValidationError(
+                  "message.data",
+                  t.Number(),
+                  message.data,
+                );
+              const playedCard = await game.playCard(
+                ws.data.user.id,
+                message.data,
+              );
+              serverInstance?.publish(
+                ws.data.params.id,
+                JSON.stringify(<IGameServerMessage>{
+                  action: GameActionServer.playCard,
+                  data: playedCard,
+                  user: ws.data.user.id,
+                }),
+              );
+              serverInstance?.publish(
+                ws.data.params.id,
+                JSON.stringify(<IGameServerMessage>{
+                  action: GameActionServer.startTurn,
+                  user: game.players[game.currentPlayer].user.toString(),
+                }),
+              );
               break;
           }
+
+          game.save();
         },
       }),
   )
