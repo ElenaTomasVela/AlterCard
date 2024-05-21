@@ -421,43 +421,52 @@ export const app = new Elysia()
           const game = await Game.findById(ws.data.params.id);
           if (!game) throw new NotFoundError("Game not found");
 
-          switch (message.action) {
-            case GameAction.lastCard:
-              game.announceLastCard(ws.data.user.id);
-              break;
-            case GameAction.pass:
-              break;
-            case GameAction.accuse:
-              break;
-            case GameAction.answerPrompt:
-              break;
-            case GameAction.playCard:
-              if (!message.data || typeof message.data !== "number")
-                throw new ValidationError(
-                  "message.data",
-                  t.Number(),
+          try {
+            switch (message.action) {
+              case GameAction.lastCard:
+                game.announceLastCard(ws.data.user.id);
+                break;
+              case GameAction.pass:
+                break;
+              case GameAction.accuse:
+                break;
+              case GameAction.answerPrompt:
+                break;
+              case GameAction.playCard:
+                if (!message.data || typeof message.data !== "number")
+                  throw new ValidationError(
+                    "message.data",
+                    t.Number(),
+                    message.data,
+                  );
+                const playedCard = await game.playCard(
+                  ws.data.user.id,
                   message.data,
                 );
-              const playedCard = await game.playCard(
-                ws.data.user.id,
-                message.data,
-              );
-              serverInstance?.publish(
-                ws.data.params.id,
-                JSON.stringify(<IGameServerMessage>{
-                  action: GameActionServer.playCard,
-                  data: playedCard,
-                  user: ws.data.user.id,
-                }),
-              );
-              serverInstance?.publish(
-                ws.data.params.id,
-                JSON.stringify(<IGameServerMessage>{
-                  action: GameActionServer.startTurn,
-                  user: game.players[game.currentPlayer].user.toString(),
-                }),
-              );
-              break;
+                serverInstance?.publish(
+                  ws.data.params.id,
+                  JSON.stringify(<IGameServerMessage>{
+                    action: GameActionServer.playCard,
+                    data: playedCard,
+                    user: ws.data.user.id,
+                  }),
+                );
+                serverInstance?.publish(
+                  ws.data.params.id,
+                  JSON.stringify(<IGameServerMessage>{
+                    action: GameActionServer.startTurn,
+                    user: game.players[game.currentPlayer].user.toString(),
+                  }),
+                );
+                break;
+            }
+          } catch (error: any) {
+            ws.send(
+              JSON.stringify(<IGameServerMessage>{
+                action: GameActionServer.error,
+                data: error.message,
+              }),
+            );
           }
 
           game.save();

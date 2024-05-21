@@ -62,7 +62,7 @@ export enum GamePromptType {
 export enum GameError {
   notPrompted = "notPrompted",
   invalidAction = "invalidAction",
-  wrongPlayer = "wrongPlayer",
+  outOfTurn = "outOfTurn",
   conditionsNotMet = "conditionsNotMet",
 }
 
@@ -189,12 +189,18 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         return card.color == discard!.color || card.symbol == discard!.symbol;
       },
       async playCard(userId, index) {
-        const player = this.players.find((p) =>
+        const playerIndex = this.players.findIndex((p) =>
           p.user.equals(new mongoose.Types.ObjectId(userId)),
         );
+        const player = this.players[playerIndex];
+        if (playerIndex !== this.currentPlayer)
+          throw new Error(GameError.outOfTurn);
+
         const cardId = player?.hand[index];
-        if (!cardId) throw new Error(GameError.invalidAction);
-        if (!this.isCardPlayable(cardId))
+        if (!cardId) {
+          throw new Error(GameError.invalidAction);
+        }
+        if (!(await this.isCardPlayable(cardId)))
           throw new Error(GameError.conditionsNotMet);
 
         const card = player.hand.splice(index, 1)[0];

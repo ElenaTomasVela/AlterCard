@@ -21,6 +21,7 @@ import {
   Game,
   GameAction,
   GameActionServer,
+  GameError,
   IGame,
   IGameMessage,
   IGameServerMessage,
@@ -632,27 +633,11 @@ describe("Game", () => {
   let token1: string;
   let token2: string;
   let game: mongoose.Document & IGame;
-  let blueOne: mongoose.Document & ICard;
-  let redTwo: mongoose.Document & ICard;
-  let yellowOne: mongoose.Document & ICard;
   beforeAll(async () => {
     const { response: response1 } = await api.user.login.post(users[1]);
     const { response: response2 } = await api.user.login.post(users[2]);
     token1 = getCookieFromResponse(response1)["authorization"];
     token2 = getCookieFromResponse(response2)["authorization"];
-
-    blueOne = (await Card.findOne({
-      symbol: CardSymbol.one,
-      color: CardColor.blue,
-    }))!;
-    redTwo = (await Card.findOne({
-      symbol: CardSymbol.two,
-      color: CardColor.red,
-    }))!;
-    yellowOne = (await Card.findOne({
-      symbol: CardSymbol.one,
-      color: CardColor.yellow,
-    }))!;
   });
   beforeEach(async () => {
     WaitingRoom.deleteMany({});
@@ -667,14 +652,30 @@ describe("Game", () => {
       deck: deck!._id,
     });
     game = await gameFromWaitingRoom(waitingRoom);
-    game.players[0].hand.push(blueOne._id, yellowOne._id);
-    game.discardPile.push(blueOne._id);
-    await game.save();
   });
   test.skip("Draw when starting turn", async () => {});
   test.skip("Game end when 1 player remaining", async () => {});
 
-  test("Correct play", async () => {
+  test.each([
+    [
+      { color: CardColor.red, symbol: CardSymbol.zero } as ICard,
+      { color: CardColor.red, symbol: CardSymbol.one } as ICard,
+    ],
+    [
+      { color: CardColor.red, symbol: CardSymbol.zero } as ICard,
+      { color: CardColor.blue, symbol: CardSymbol.zero } as ICard,
+    ],
+    [
+      { color: CardColor.wild } as ICard,
+      { color: CardColor.blue, symbol: CardSymbol.zero } as ICard,
+    ],
+  ])("Correct play", async (handCard, discardPileCard) => {
+    const dbHandCard = await Card.findOne(handCard);
+    const dbDiscardCard = await Card.findOne(discardPileCard);
+    game.players[0].hand.push(dbHandCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
     const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
       // @ts-expect-error
       headers: { Cookie: `authorization=${token1}` },
@@ -689,17 +690,100 @@ describe("Game", () => {
     session1.send(
       JSON.stringify({
         action: GameAction.playCard,
-        data: 6,
+        data: 7,
       } as IGameMessage),
     );
 
     const message = JSON.parse(
       await waitForSocketMessage(session2),
     ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.playCard);
+    expect(gameAfter!.discardPile.length).toBe(game.discardPile.length + 1);
+    expect(gameAfter!.players[0].hand.length).toBe(
+      game.players[0].hand.length - 1,
+    );
   });
-  test.skip("Wrong play, unplayable card", async () => {});
-  test.skip("Wrong play, out of turn", async () => {});
+  test("Wrong play, unplayable card", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.blue,
+    });
+    game.players[0].hand.push(dbHandCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 7,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.conditionsNotMet);
+    expect(gameAfter!.discardPile.length).toBe(game.discardPile.length);
+    expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
+  });
+  test("Wrong play, out of turn", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.red,
+    });
+    game.players[0].hand.push(dbHandCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session2.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 7,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session2),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.outOfTurn);
+    expect(gameAfter!.discardPile.length).toBe(game.discardPile.length);
+    expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
+  });
 
   test.skip("Choose color after playing wildcard", async () => {});
   test.skip("Invalid action after playing wildcard", async () => {});
