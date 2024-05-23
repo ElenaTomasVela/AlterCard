@@ -15,6 +15,11 @@ import {
   IWaitingRoom,
   IWebsocketMessage,
   IWebsocketMessageServer,
+  ICardDeck,
+  IWaitingRoomMessage,
+  WaitingRoomAction,
+  IWaitingRoomServerMessage,
+  WaitingRoomServerAction,
 } from "@/lib/types";
 import {
   Tooltip,
@@ -24,6 +29,9 @@ import {
 import { TooltipArrow } from "@radix-ui/react-tooltip";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { Card, CardTitle } from "@/components/ui/card";
+import HightlightCard from "@/components/HightlightCard";
+import { Label } from "@/components/ui/label";
 
 const Player = ({
   player,
@@ -87,9 +95,50 @@ const HouseRuleSwitch = ({
   );
 };
 
+const DeckSelect = ({
+  deck,
+  checked,
+  onChange,
+  disabled,
+}: {
+  deck: ICardDeck;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (id: string) => void;
+}) => {
+  return (
+    <>
+      <input
+        name="deck"
+        className="hidden peer"
+        type="radio"
+        id={`deck${deck._id}`}
+        value={deck._id}
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <Label
+        htmlFor={`deck${deck._id}`}
+        className="group focus:outline-none
+        peer-checked:shadow-primary/10 peer-checked:shadow-xl peer-checked:border-primary/40
+        "
+      >
+        <Card className="p-3 flex flex-col text-center border-inherit">
+          <CardTitle className="text-lg font-semibold text-gray-500">
+            {deck.name}
+          </CardTitle>
+          <span className="text-gray-700 text-sm">{deck.description}</span>
+        </Card>
+      </Label>
+    </>
+  );
+};
+
 export const WaitingRoom = () => {
   const { user } = useContext(AuthContext) as AuthContextType;
   const [room, setRoom] = useState<IWaitingRoom>();
+  const [decks, setDecks] = useState<ICardDeck[]>([]);
   const [socket, setSocket] = useState<WebSocket>();
   const { roomId } = useParams();
   const { toast } = useToast();
@@ -143,6 +192,16 @@ export const WaitingRoom = () => {
     });
   };
 
+  const chooseDeck = (deckId: string) => {
+    setRoom((r) => {
+      if (!r) return;
+      return {
+        ...r,
+        deck: deckId,
+      };
+    });
+  };
+
   const connect = async () => {
     const fetchedRoom = await api.get("/room/" + roomId);
     setRoom(fetchedRoom.data);
@@ -155,9 +214,10 @@ export const WaitingRoom = () => {
 
     webSocket.addEventListener("message", (message) => {
       if (message.data === "success") return;
-      const msgObject: IWebsocketMessageServer = JSON.parse(message.data);
+      const msgObject: IWaitingRoomServerMessage = JSON.parse(message.data);
       switch (msgObject.action) {
         case "playerJoined":
+          if (typeof msgObject.data !== "string") return;
           addPlayer(msgObject.data);
           break;
         case "playerLeft":
@@ -172,12 +232,12 @@ export const WaitingRoom = () => {
             };
           });
           break;
-        case "gameStarted":
+        case WaitingRoomServerAction.start:
           navigate("/game/" + msgObject.data);
           break;
-        case "ready":
+        case WaitingRoomServerAction.ready:
           if (typeof msgObject.data !== "boolean") return;
-          setPlayerReady(msgObject.user, msgObject.data);
+          setPlayerReady(msgObject.user!, msgObject.data);
           break;
         case "addRule":
           if (typeof msgObject.data !== "string") return;
@@ -188,16 +248,27 @@ export const WaitingRoom = () => {
           console.log("removing");
           removeHouseRule(msgObject.data as HouseRule);
           break;
+        case WaitingRoomServerAction.setDeck:
+          if (typeof msgObject.data !== "string") return;
+          chooseDeck(msgObject.data);
+          break;
+        case WaitingRoomServerAction.newHost:
+        case WaitingRoomServerAction.error:
         default:
           break;
       }
-      setSocket(webSocket);
     });
+    setSocket(webSocket);
     return webSocket;
   };
 
   useEffect(() => {
+    const fetchDecks = async () => {
+      const response = await api.get<ICardDeck[]>("/deck");
+      setDecks(response.data);
+    };
     const ws = connect();
+    fetchDecks();
 
     return () => {
       ws.then((ws) => ws.close());
@@ -222,6 +293,16 @@ export const WaitingRoom = () => {
     }
   };
 
+  const changeDeck = async (id: string) => {
+    if (!socket || !user) return;
+    socket.send(
+      JSON.stringify({
+        action: WaitingRoomAction.setDeck,
+        data: id,
+      } as IWaitingRoomMessage),
+    );
+  };
+
   const startGame = () => {
     if (!socket || !user) return;
     socket.send(JSON.stringify({ action: "start" }));
@@ -239,7 +320,7 @@ export const WaitingRoom = () => {
                 room.users.map((p, index) => <Player player={p} key={index} />)}
             </div>
           </div>
-          <div className="flex justify-between flex-wrap w-1/2">
+          <div className="flex justify-between flex-wrap w-3/5">
             <div>
               <H2 className="font-normal">Choose your House Rules</H2>
               <div className="flex flex-col gap-3 p-5">
@@ -248,15 +329,27 @@ export const WaitingRoom = () => {
                     <HouseRuleSwitch
                       houseRule={r}
                       key={index}
-                      disable={user != room.host.username}
+                      disable={user != room.host?.username}
                       checked={room.houseRules.includes(r.id)}
                       onChange={(add) => changeHouseRule(r.id, add)}
                     />
                   ))}
               </div>
             </div>
-            <div>
+            <div className="flex flex-col gap-3">
               <H2 className="font-normal">Choose your Deck</H2>
+              <div className="grid grid-cols-3 gap-3">
+                {decks &&
+                  decks.map((d) => (
+                    <DeckSelect
+                      deck={d}
+                      key={d._id}
+                      onChange={changeDeck}
+                      checked={room?.deck == d._id}
+                      disabled={user != room?.host?.username}
+                    />
+                  ))}
+              </div>
             </div>
           </div>
         </div>
@@ -267,7 +360,7 @@ export const WaitingRoom = () => {
               I'm ready
             </label>
           </span>
-          {user == room?.host.username && (
+          {user == room?.host?.username && (
             <Button onClick={() => startGame()}>Start Game</Button>
           )}
         </span>

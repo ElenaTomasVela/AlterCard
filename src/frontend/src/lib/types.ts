@@ -67,27 +67,42 @@ export interface IWaitingRoom {
     ready: boolean;
   }[];
   houseRules: HouseRule[];
+  deck: string;
 }
 
-export interface IWebsocketMessage {
-  action:
-    | "playerJoined"
-    | "playerLeft"
-    | "startGame"
-    | "ready"
-    | "addRule"
-    | "removeRule";
-  data: string;
+export enum WaitingRoomAction {
+  start = "start",
+  addRule = "addRule",
+  removeRule = "removeRule",
+  ready = "ready",
+  setDeck = "setDeck",
 }
 
-export interface IWebsocketMessageServer {
-  action:
-    | "playerJoined"
-    | "playerLeft"
-    | "gameStarted"
-    | "ready"
-    | "addRule"
-    | "removeRule";
-  data: string;
-  user: string;
+export enum WaitingRoomServerAction {
+  start = "start",
+  addRule = "addRule",
+  removeRule = "removeRule",
+  ready = "ready",
+  playerJoined = "playerJoined",
+  playerLeft = "playerLeft",
+  newHost = "newHost",
+  error = "error",
+  setDeck = "setDeck",
+}
+
+export interface IWaitingRoomMessage {
+  action: WaitingRoomAction;
+  data?: string | boolean;
+}
+
+export interface IWaitingRoomServerMessage {
+  action: WaitingRoomServerAction;
+  data?: string | boolean;
+  user?: string;
+}
+
+export interface ICardDeck {
+  _id: string;
+  name: string;
+  description: string;
 }
