@@ -148,7 +148,7 @@ export const WaitingRoom = () => {
     setRoom(fetchedRoom.data);
 
     const webSocket = new WebSocket(
-      `wss://${import.meta.env.VITE_BACKEND_URL}/room/${fetchedRoom.data._id}/ws`,
+      `${import.meta.env.VITE_BACKEND_WS_URL}/room/${fetchedRoom.data._id}/ws`,
     );
     await waitForSocketConnection(webSocket);
     toast({ description: "Successfully connected to the room" });

@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }: { children: JSX.Element }) => {
 
   const signup = async (userData: User) => {
     const response = await axios.post(
-      `https://${import.meta.env.VITE_BACKEND_URL}/user/`,
+      `${import.meta.env.VITE_BACKEND_URL}/user/`,
       userData,
       { withCredentials: true },
     );
@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }: { children: JSX.Element }) => {
 
   const login = async (userData: User) => {
     const response = await axios.post(
-      `https://${import.meta.env.VITE_BACKEND_URL}/user/login`,
+      `${import.meta.env.VITE_BACKEND_URL}/user/login`,
       userData,
       { withCredentials: true },
     );
