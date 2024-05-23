@@ -788,9 +788,83 @@ describe("Game", () => {
   test.skip("Choose color after playing wildcard", async () => {});
   test.skip("Invalid action after playing wildcard", async () => {});
 
-  test.skip("Draw card", async () => {});
+  test("Draw card", async () => {
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.drawCard,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.draw);
+    expect(message.data).toBe(1);
+    expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 1);
+    expect(gameAfter!.players[0].hand.length).toBe(
+      game.players[0].hand.length + 1,
+    );
+  });
   test.skip("Pass on second draw", async () => {});
-  test.skip("Play drawn card", async () => {});
+  test("Play drawn card", async () => {
+    const dbPlayableCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.red,
+    });
+    game.drawPile.push(dbPlayableCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.drawCard,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1),
+      session1.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: true,
+        } as IGameMessage),
+      );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.playCard);
+    expect(message.data._id).toBe(dbPlayableCard!.id);
+    expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 1);
+    expect(gameAfter!.discardPile.length).toBe(game.discardPile.length + 1);
+    expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
+  });
 
   test.skip("Draw 2 effect", async () => {});
   test.skip("Skip turn effect", async () => {});

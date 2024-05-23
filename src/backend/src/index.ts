@@ -30,7 +30,7 @@ import {
   gameFromWaitingRoom,
 } from "./models/game";
 import { houseRule } from "./models/houseRule";
-import { CardColor, ICard } from "./models/card";
+import { Card, CardColor, ICard } from "./models/card";
 import mongoose from "mongoose";
 
 // Typescript needs to know that the env variables are defined
@@ -411,7 +411,7 @@ export const app = new Elysia()
         body: t.Object({
           action: t.Enum(GameAction),
           data: t.Optional(
-            t.Union([t.String(), t.Number(), t.Enum(CardColor)]),
+            t.Union([t.String(), t.Number(), t.Enum(CardColor), t.Boolean()]),
           ),
         }),
         async open(ws) {
@@ -426,11 +426,17 @@ export const app = new Elysia()
               case GameAction.lastCard:
                 game.announceLastCard(ws.data.user.id);
                 break;
-              case GameAction.pass:
-                break;
               case GameAction.accuse:
                 break;
               case GameAction.answerPrompt:
+                const messages = await game.handlePlayerPrompt(
+                  ws.data.user.id,
+                  message.data,
+                );
+
+                for (const m of messages) {
+                  serverInstance?.publish(ws.data.params.id, JSON.stringify(m));
+                }
                 break;
               case GameAction.playCard:
                 if (!message.data || typeof message.data !== "number")
@@ -451,11 +457,30 @@ export const app = new Elysia()
                     user: ws.data.user.id,
                   }),
                 );
+                break;
+              case GameAction.drawCard:
+                game.requestCardDraw(ws.data.user.id);
                 serverInstance?.publish(
                   ws.data.params.id,
                   JSON.stringify(<IGameServerMessage>{
-                    action: GameActionServer.startTurn,
-                    user: game.players[game.currentPlayer].user.toString(),
+                    action: GameActionServer.draw,
+                    data: 1,
+                    user: ws.data.user.id,
+                  }),
+                );
+                break;
+              case GameAction.viewHand:
+                const player = game.players.find((p) =>
+                  p.user.equals(new mongoose.Types.ObjectId(ws.data.user.id)),
+                );
+                const cards = await Card.find({
+                  _id: { $in: player!.hand },
+                }).lean();
+
+                ws.send(
+                  JSON.stringify(<IGameServerMessage>{
+                    action: GameActionServer.viewHand,
+                    data: cards,
                   }),
                 );
                 break;
