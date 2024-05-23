@@ -77,5 +77,5 @@ export async function seedCards() {
     description: "The standard experience",
     cards: cardDeck,
   });
-  dbDeck.save();
+  await dbDeck.save();
 }
