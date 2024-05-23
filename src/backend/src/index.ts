@@ -30,7 +30,7 @@ import {
   gameFromWaitingRoom,
 } from "./models/game";
 import { houseRule } from "./models/houseRule";
-import { Card, CardColor, ICard } from "./models/card";
+import { Card, CardColor, CardDeck, ICard } from "./models/card";
 import mongoose from "mongoose";
 
 // Typescript needs to know that the env variables are defined
@@ -185,7 +185,10 @@ export const app = new Elysia()
               action: WaitingRoomServerAction.playerJoined,
               data: ws.data.user.username,
             };
-            ws.publish(ws.data.params.id, JSON.stringify(response));
+            serverInstance?.publish(
+              ws.data.params.id,
+              JSON.stringify(response),
+            );
           }
         },
 
@@ -383,6 +386,13 @@ export const app = new Elysia()
 
                 waitingRoom!.deck = new mongoose.Types.ObjectId(message.data);
                 await waitingRoom!.save();
+                serverInstance?.publish(
+                  ws.data.params.id,
+                  JSON.stringify(<IWaitingRoomServerMessage>{
+                    action: WaitingRoomServerAction.setDeck,
+                    data: message.data,
+                  }),
+                );
 
                 break;
               default:
@@ -394,8 +404,20 @@ export const app = new Elysia()
         },
       });
   })
+  .group("/deck", (app) =>
+    app.get("/", async () => {
+      const decks = await CardDeck.find();
+      return decks;
+    }),
+  )
   .group("/game", (app) =>
     app
+      .get("/", async ({ user }) => {
+        const games = await Game.find({
+          players: { $elemMatch: { user: user?.id } },
+        }).lean();
+        return games;
+      })
       .get("/:id", async ({ params: { id } }) => {
         const game = await Game.findById(id)
           .populate("discardPile")
