@@ -415,11 +415,19 @@ export const app = new Elysia()
           ),
         }),
         async open(ws) {
+          const game = await Game.findById(ws.data.params.id);
+          if (!game) ws.close();
+
           ws.subscribe(ws.data.params.id);
         },
         async message(ws, message) {
           const game = await Game.findById(ws.data.params.id);
-          if (!game) throw new NotFoundError("Game not found");
+          if (!game) {
+            ws.close();
+            throw new NotFoundError("Game not found");
+          }
+
+          if (game.finished) throw new Error(GameError.gameFinished);
 
           try {
             switch (message.action) {
@@ -439,12 +447,16 @@ export const app = new Elysia()
                 }
                 break;
               case GameAction.playCard:
-                if (!message.data || typeof message.data !== "number")
+                if (
+                  message.data == undefined ||
+                  typeof message.data != "number"
+                )
                   throw new ValidationError(
                     "message.data",
                     t.Number(),
                     message.data,
                   );
+
                 const playedCard = await game.playCard(
                   ws.data.user.id,
                   message.data,
@@ -460,6 +472,7 @@ export const app = new Elysia()
                 break;
               case GameAction.drawCard:
                 game.requestCardDraw(ws.data.user.id);
+
                 serverInstance?.publish(
                   ws.data.params.id,
                   JSON.stringify(<IGameServerMessage>{
@@ -484,6 +497,31 @@ export const app = new Elysia()
                   }),
                 );
                 break;
+            }
+            if (game?.finished) {
+              // const winningPlayers = await User.find()
+              //   .in(game.winningPlayers)
+              //   .select("username")
+              //   .lean();
+              const winningPlayers = await User.aggregate()
+                .match({
+                  _id: { $in: game.winningPlayers },
+                })
+                .addFields({
+                  order: { $indexOfArray: [game.winningPlayers, "$_id"] },
+                })
+                .sort({ order: 1 })
+                .project({ username: 1 });
+
+              serverInstance?.publish(
+                ws.data.params.id,
+                JSON.stringify(<IGameServerMessage>{
+                  action: GameActionServer.endGame,
+                  data: winningPlayers,
+                }),
+              );
+              await Game.deleteOne({ _id: game._id });
+              ws.close();
             }
           } catch (error: any) {
             ws.send(

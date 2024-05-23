@@ -53,10 +53,10 @@ export enum GameActionServer {
   changeColor = "changeColor",
   playCard = "playCard",
   viewHand = "viewHand",
+  endGame = "endGame",
 }
 
 export enum GamePromptType {
-  playCard = "playCard",
   chooseColor = "chooseColor",
   stackDrawCard = "stackDrawCard",
   playDrawnCard = "playDrawnCard",
@@ -68,6 +68,7 @@ export enum GameError {
   outOfTurn = "outOfTurn",
   conditionsNotMet = "conditionsNotMet",
   waitingForPrompt = "waitingForPrompt",
+  gameFinished = "gameFinished",
 }
 
 export interface IGamePrompt {
@@ -218,9 +219,10 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         const playerIndex = this.players.findIndex((p) =>
           p.user.equals(new mongoose.Types.ObjectId(userId)),
         );
-        const player = this.players[playerIndex];
         if (playerIndex !== this.currentPlayer)
           throw new Error(GameError.outOfTurn);
+
+        const player = this.players[playerIndex];
 
         const cardId = player?.hand[index];
         if (!cardId) {
@@ -234,12 +236,13 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         // TODO: Resolve effects (separate resolve card effect function)
         if (player.hand.length == 0) this.winningPlayers.push(player.user);
 
-        return (await Card.findById(card).lean())!;
+        const dbCard = await Card.findById(card).lean();
+        await this.nextTurn();
+        return dbCard!;
       },
 
       drawCard(playerIndex, quantity = 1) {
         const player = this.players[playerIndex];
-        const drawnCards = [];
         for (let i = 0; i < quantity; i++) {
           // Restock deck if empty
           if (this.drawPile.length == 0) {
@@ -253,7 +256,6 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
           const card = this.drawPile.pop();
           player!.hand.push(card!);
-          drawnCards.push(card!);
         }
       },
 
@@ -266,8 +268,11 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           // Skip players that already won
         } while (this.players[this.currentPlayer].hand.length == 0);
 
-        if (this.winningPlayers.length == this.players.length - 1)
+        // finish game
+        if (this.winningPlayers.length == this.players.length - 1) {
           this.finished = true;
+          this.winningPlayers.push(this.players[this.currentPlayer].user);
+        }
       },
 
       async handlePlayerPrompt(userId, answer) {
@@ -284,8 +289,6 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         const notifications: IGameServerMessage[] = [];
 
         switch (prompt.type) {
-          case GamePromptType.playCard:
-            break;
           case GamePromptType.chooseColor:
             if (!answer || typeof answer !== "string" || !(answer in CardColor))
               throw new Error(GameError.invalidAction);

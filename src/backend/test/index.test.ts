@@ -809,6 +809,8 @@ describe("Game", () => {
     const message = JSON.parse(
       await waitForSocketMessage(session1),
     ) as IGameServerMessage;
+    await waitForSocketMessage(session2);
+
     const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.draw);
     expect(message.data).toBe(1);
@@ -879,4 +881,47 @@ describe("Game", () => {
 
   test.skip("Correct draw 4 accusation", async () => {});
   test.skip("Incorrect draw 4 accusation", async () => {});
+
+  test("End game", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.red,
+    });
+    game.players[0].hand = [dbHandCard!._id];
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.endGame);
+    expect(new mongoose.Types.ObjectId(message.data[0]._id)).toEqual(
+      game.players[0].user,
+    );
+    expect(gameAfter).toBeNull();
+  });
 });
