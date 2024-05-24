@@ -1,4 +1,4 @@
-FROM oven/bun:1 as base
+FROM oven/bun:1.1.4-alpine as base
 WORKDIR /app
 
 COPY package.json bun.lockb ./
@@ -6,8 +6,8 @@ RUN bun install
 
 COPY . /app
 
-FROM build
+RUN bun run build
 
 EXPOSE 5173
 
-ENTRYPOINT [ "bun", "run", "dev", "--host"]
+ENTRYPOINT [ "bun", "run", "preview"]
