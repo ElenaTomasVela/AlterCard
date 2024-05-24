@@ -418,13 +418,33 @@ export const app = new Elysia()
         }).lean();
         return games;
       })
-      .get("/:id", async ({ params: { id } }) => {
+      .get("/:id", async ({ params: { id }, user }) => {
         const game = await Game.findById(id)
-          .populate("discardPile")
-          .populate("drawPile")
+          .populate({
+            path: "discardPile",
+            select: "-_id -__v",
+          })
+          // .populate("drawPile")
           .populate({
             path: "players",
-            populate: { path: "user", select: "username" },
+            match: { user: new mongoose.Types.ObjectId(user.id) },
+            populate: {
+              path: "hand",
+              select: "-_id -__v",
+            },
+          })
+          .select("-_id -__v")
+          .transform((d) => {
+            const newPlayers = d?.players.map((p) =>
+              p.user.equals(new mongoose.Types.ObjectId(user.id))
+                ? p
+                : { ...p, hand: { length: p.hand.length } },
+            );
+            return {
+              ...d,
+              players: newPlayers,
+              drawPile: { length: d?.drawPile.length },
+            };
           })
           .lean();
         return game;

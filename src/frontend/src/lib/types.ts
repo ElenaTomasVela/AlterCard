@@ -18,6 +18,37 @@ export const UserSchema = z.object({
 
 export type User = z.infer<typeof UserSchema>;
 
+export enum CardColor {
+  red = "RED",
+  green = "GREEN",
+  blue = "BLUE",
+  yellow = "YELLOW",
+  wild = "WILD",
+}
+
+export enum CardSymbol {
+  zero = "ZERO",
+  one = "ONE",
+  two = "TWO",
+  three = "THREE",
+  four = "FOUR",
+  five = "FIVE",
+  six = "SIX",
+  seven = "SEVEN",
+  eight = "EIGHT",
+  nine = "NINE",
+  draw2 = "DRAW_2",
+  draw4 = "DRAW_4",
+  skipTurn = "SKIP_TURN",
+  reverseTurn = "REVERSE_TURN",
+  changeColor = "CHANGE_COLOR",
+}
+
+export interface ICard {
+  symbol: CardSymbol;
+  color: CardColor;
+}
+
 export enum HouseRule {
   stackDraw = "STACK_DRAW",
   punishmentDraw = "PUNISHMENT_DRAW",
@@ -105,4 +136,75 @@ export interface ICardDeck {
   _id: string;
   name: string;
   description: string;
+}
+
+export enum GameAction {
+  lastCard = "lastCard",
+  accuse = "accuse",
+  answerPrompt = "answerPrompt",
+  playCard = "playCard",
+  drawCard = "drawCard",
+  viewHand = "viewHand",
+}
+
+export enum GameActionServer {
+  draw = "draw",
+  lastCard = "lastCard",
+  accuse = "accuse",
+  startTurn = "startTurn",
+  endTurn = "endTurn",
+  error = "error",
+  changeColor = "changeColor",
+  playCard = "playCard",
+  viewHand = "viewHand",
+  endGame = "endGame",
+}
+
+export enum GamePromptType {
+  chooseColor = "chooseColor",
+  stackDrawCard = "stackDrawCard",
+  playDrawnCard = "playDrawnCard",
+}
+
+export enum GameError {
+  notPrompted = "notPrompted",
+  invalidAction = "invalidAction",
+  outOfTurn = "outOfTurn",
+  conditionsNotMet = "conditionsNotMet",
+  waitingForPrompt = "waitingForPrompt",
+  gameFinished = "gameFinished",
+}
+
+export interface IGamePrompt {
+  type: GamePromptType;
+  player?: number;
+}
+
+export interface IGameMessage {
+  action: GameAction;
+  data?: string | number | boolean;
+}
+
+export interface IGameServerMessage {
+  action: GameActionServer;
+  data?: unknown;
+  user?: string;
+}
+
+export interface IPlayer {
+  user: string;
+  hand: string[];
+  announcingLastCard: boolean;
+}
+
+export interface IGame {
+  currentPlayer: number;
+  promptQueue: IGamePrompt[];
+  clockwiseTurns: boolean;
+  houseRules: HouseRule[];
+  players: IPlayer[];
+  discardPile: string[];
+  drawPile: string[];
+  winningPlayers: string[];
+  finished: boolean;
 }
