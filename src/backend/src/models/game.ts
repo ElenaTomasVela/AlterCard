@@ -48,7 +48,6 @@ export enum GameActionServer {
   lastCard = "lastCard",
   accuse = "accuse",
   startTurn = "startTurn",
-  endTurn = "endTurn",
   error = "error",
   changeColor = "changeColor",
   playCard = "playCard",
@@ -236,7 +235,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         // TODO: Resolve effects (separate resolve card effect function)
         if (player.hand.length == 0) this.winningPlayers.push(player.user);
 
-        const dbCard = await Card.findById(card).lean();
+        const dbCard = await Card.findById(card).select("-_id").lean();
         await this.nextTurn();
         return dbCard!;
       },
@@ -317,7 +316,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         if (shouldSkipTurn) {
           this.nextTurn();
           notifications.push({
-            action: GameActionServer.endTurn,
+            action: GameActionServer.startTurn,
             data: this.currentPlayer,
           });
         }

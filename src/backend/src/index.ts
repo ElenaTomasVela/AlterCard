@@ -424,13 +424,19 @@ export const app = new Elysia()
             path: "discardPile",
             select: "-_id -__v",
           })
-          // .populate("drawPile")
           .populate({
             path: "players",
             match: { user: new mongoose.Types.ObjectId(user.id) },
             populate: {
               path: "hand",
               select: "-_id -__v",
+            },
+          })
+          .populate({
+            path: "players",
+            populate: {
+              path: "user",
+              select: "-__v -password",
             },
           })
           .select("-_id -__v")
@@ -530,7 +536,9 @@ export const app = new Elysia()
                 );
                 const cards = await Card.find({
                   _id: { $in: player!.hand },
-                }).lean();
+                })
+                  .select("-_id")
+                  .lean();
 
                 ws.send(
                   JSON.stringify(<IGameServerMessage>{

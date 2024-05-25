@@ -152,7 +152,6 @@ export enum GameActionServer {
   lastCard = "lastCard",
   accuse = "accuse",
   startTurn = "startTurn",
-  endTurn = "endTurn",
   error = "error",
   changeColor = "changeColor",
   playCard = "playCard",
@@ -187,13 +186,20 @@ export interface IGameMessage {
 
 export interface IGameServerMessage {
   action: GameActionServer;
-  data?: unknown;
+  data?: string | number | ICard | ICard[];
   user?: string;
 }
 
 export interface IPlayer {
-  user: string;
-  hand: string[];
+  user: {
+    _id: string;
+    username: string;
+  };
+  hand:
+    | ICard[]
+    | {
+        length: number;
+      };
   announcingLastCard: boolean;
 }
 
@@ -203,8 +209,8 @@ export interface IGame {
   clockwiseTurns: boolean;
   houseRules: HouseRule[];
   players: IPlayer[];
-  discardPile: string[];
-  drawPile: string[];
+  discardPile: ICard[];
+  drawPile: { length: number };
   winningPlayers: string[];
   finished: boolean;
 }

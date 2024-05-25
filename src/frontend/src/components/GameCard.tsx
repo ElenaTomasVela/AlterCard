@@ -1,7 +1,13 @@
 import { CardColor, ICard } from "@/lib/types";
 import React from "react";
 
-export default function GameCard({ card }: { card: ICard }) {
+export default function GameCard({
+  card,
+  className,
+}: {
+  card: ICard;
+  className?: string;
+}) {
   const getBgColor = (cardColor: CardColor) => {
     switch (cardColor) {
       case CardColor.red:
@@ -20,7 +26,7 @@ export default function GameCard({ card }: { card: ICard }) {
   return (
     <div
       className={`${getBgColor(card.color)} aspect-[2/3] rounded-xl flex flex-col justify-center
-      p-4 text-xl font-black max-w-32 text-center`}
+      p-4 text-xl font-black w-32 text-center ${className}`}
     >
       <div className="bg-white rounded-lg p-2 h-3/5 flex flex-col justify-center">
         <span className="">{card.symbol}</span>
