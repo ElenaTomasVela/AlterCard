@@ -541,11 +541,21 @@ export const app = new Elysia()
                 const player = game.players.find((p) =>
                   p.user.equals(new mongoose.Types.ObjectId(ws.data.user.id)),
                 );
-                const cards = await Card.find({
-                  _id: { $in: player!.hand },
-                })
-                  .select("-_id")
-                  .lean();
+                // const cards = await Card.find({
+                //   _id: { $in: player!.hand },
+                // })
+                //   .select("-_id")
+                //   .lean();
+
+                const cards = await Card.aggregate()
+                  .match({
+                    _id: { $in: player!.hand },
+                  })
+                  .addFields({
+                    order: { $indexOfArray: [player!.hand, "$_id"] },
+                  })
+                  .sort({ order: 1 })
+                  .project({ color: 1, symbol: 1 });
 
                 ws.send(
                   JSON.stringify(<IGameServerMessage>{

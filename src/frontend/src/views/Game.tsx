@@ -1,4 +1,6 @@
-import GameCard from "@/components/GameCard";
+import { GameCard, CardBack } from "@/components/GameCard";
+import { H1, H2, H3 } from "@/components/Headings";
+import { Button } from "@/components/ui/button";
 import { toast, useToast } from "@/components/ui/use-toast";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";
 import {
@@ -9,8 +11,10 @@ import {
   IGame,
   IGameMessage,
   IGameServerMessage,
+  IPlayer,
 } from "@/lib/types";
 import { api, waitForSocketConnection } from "@/lib/utils";
+import { PopoverAnchor } from "@radix-ui/react-popover";
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -29,6 +33,7 @@ export const Game = () => {
   const [game, setGame] = useState<IGame>();
   const [socket, setSocket] = useState<WebSocket>();
   const { user } = useContext(AuthContext) as AuthContextType;
+  const [openPrompt, setOpenPrompt] = useState<boolean>(false);
   const { gameId } = useParams();
   const { toast } = useToast();
 
@@ -87,6 +92,16 @@ export const Game = () => {
         };
       });
     });
+  };
+
+  const drawCard = () => {
+    socket?.send(
+      JSON.stringify({
+        action: GameAction.drawCard,
+      } as IGameMessage),
+    );
+
+    setOpenPrompt(true);
   };
 
   const handleWebsocketMessage = (message: MessageEvent) => {
@@ -167,8 +182,8 @@ export const Game = () => {
 
   useEffect(() => {
     const connect = async () => {
-      const fetchedGame = await api.get("/game/" + gameId);
-      setGame(fetchedGame.data);
+      const fetchedGame = (await api.get("/game/" + gameId)).data;
+      setGame(fetchedGame);
 
       const webSocket = new WebSocket(
         `${import.meta.env.VITE_BACKEND_WS_URL}/game/${gameId}/ws`,
@@ -176,7 +191,6 @@ export const Game = () => {
       await waitForSocketConnection(webSocket);
       toast({ description: "Successfully connected to the game" });
 
-      webSocket.addEventListener("message", handleWebsocketMessage);
       setSocket(webSocket);
       return webSocket;
     };
@@ -188,20 +202,80 @@ export const Game = () => {
     };
   }, []);
 
+  useEffect(() => {
+    socket?.addEventListener("message", handleWebsocketMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket]);
+
   return (
     <div className="flex flex-col gap-3">
       {game && (
         <>
-          <div className="flex flex-col gap-3">
-            <GameCard card={game.discardPile[game.discardPile.length - 1]} />
-            <div>
-              {game.players
-                .filter((p) => p.user.username != user)
-                .map((p) => (
-                  <Player player={p} key={p.user._id} />
-                ))}
+          <div className="flex flex-col gap-4">
+            <H1>{game.players[game.currentPlayer].user.username}'s turn</H1>
+            <div className="flex flex-wrap gap-10">
+              <div>
+                {game.players
+                  .filter((p) => p.user.username != user)
+                  .map((p) => (
+                    <Player player={p} key={p.user._id} />
+                  ))}
+              </div>
+              <div className="relative flex-1 pb-5">
+                {openPrompt && (
+                  <div
+                    className="absolute text-center
+                  w-full h-full bg-white/90 flex flex-col gap-2"
+                  >
+                    <H3>Play drawn card?</H3>
+                    <GameCard
+                      className="m-auto flex-1 min-h-0 min-w-0 w-auto object-contain"
+                      card={getMyHand().slice(-1)[0]}
+                    />
+                    <span className="flex gap-4 mx-auto">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          socket?.send(
+                            JSON.stringify({
+                              action: GameAction.answerPrompt,
+                              data: true,
+                            } as IGameMessage),
+                          );
+                          setOpenPrompt(false);
+                        }}
+                      >
+                        Play
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          socket?.send(
+                            JSON.stringify({
+                              action: GameAction.answerPrompt,
+                              data: false,
+                            } as IGameMessage),
+                          );
+
+                          setOpenPrompt(false);
+                        }}
+                        variant="outline"
+                      >
+                        Keep in hand
+                      </Button>
+                    </span>
+                  </div>
+                )}
+                <div className="flex gap-3 w-fit mx-auto">
+                  <button onClick={() => drawCard()}>
+                    <CardBack />
+                  </button>
+                  <GameCard
+                    card={game.discardPile[game.discardPile.length - 1]}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between px-5">
+            <div className="flex justify-between px-5 h-5">
               {getMyHand().map((c, index) => {
                 return (
                   <button
@@ -214,10 +288,10 @@ export const Game = () => {
                   >
                     <GameCard
                       card={c}
-                      className="shadow-lg 
+                      className="shadow-lg w-24
                       group-hover:-translate-y-5 group-hover:rotate-2 
                       transition-[margin,transform] absolute
-                      group-focus:ring-4 ring-primary/50 ring-offset-2"
+                      group-focus:ring-4 ring-primary/50 ring-offset-2 top-0"
                     />
                   </button>
                 );
