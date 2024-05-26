@@ -279,7 +279,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           p.user.equals(new mongoose.Types.ObjectId(userId)),
         );
 
-        const prompt = this.promptQueue.pop();
+        const prompt = this.promptQueue[this.promptQueue.length - 1];
         if (!prompt) throw new Error(GameError.notPrompted);
 
         if (playerIndex !== prompt.player) throw new Error(GameError.outOfTurn);
@@ -311,6 +311,8 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             }
             break;
         }
+
+        this.promptQueue.pop();
 
         const shouldSkipTurn = this.promptQueue.length == 0;
         if (shouldSkipTurn) {
