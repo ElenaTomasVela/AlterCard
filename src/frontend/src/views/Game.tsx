@@ -143,6 +143,11 @@ export const Game = () => {
         });
         break;
       case GameActionServer.error:
+        toast({
+          title: "Oops, server returned an error!",
+          description: msgObject.data?.toString(),
+          variant: "destructive",
+        });
         break;
       case GameActionServer.changeColor:
         break;
