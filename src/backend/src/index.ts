@@ -517,6 +517,13 @@ export const app = new Elysia()
                     user: ws.data.user.id,
                   }),
                 );
+                serverInstance?.publish(
+                  ws.data.params.id,
+                  JSON.stringify(<IGameServerMessage>{
+                    action: GameActionServer.startTurn,
+                    data: game.currentPlayer,
+                  }),
+                );
                 break;
               case GameAction.drawCard:
                 game.requestCardDraw(ws.data.user.id);
