@@ -260,6 +260,10 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
         const card = player.hand.splice(index, 1)[0];
         this.discardPile.push(card);
+        if (this.forcedColor) {
+          this.forcedColor = undefined;
+          this.pushNotification({ action: GameActionServer.changeColor });
+        }
 
         const dbCard = await Card.findById(card).lean();
         this.pushNotification({
