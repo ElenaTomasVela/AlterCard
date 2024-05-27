@@ -485,14 +485,8 @@ export const app = new Elysia()
               case GameAction.accuse:
                 break;
               case GameAction.answerPrompt:
-                const messages = await game.handlePlayerPrompt(
-                  ws.data.user.id,
-                  message.data,
-                );
+                await game.handlePlayerPrompt(ws.data.user.id, message.data);
 
-                for (const m of messages) {
-                  serverInstance?.publish(ws.data.params.id, JSON.stringify(m));
-                }
                 break;
               case GameAction.playCard:
                 if (
@@ -505,25 +499,18 @@ export const app = new Elysia()
                     message.data,
                   );
 
-                const playedCard = await game.playCard(
+                const playedCard = await game.requestPlayCard(
                   ws.data.user.id,
                   message.data,
                 );
-                serverInstance?.publish(
-                  ws.data.params.id,
-                  JSON.stringify(<IGameServerMessage>{
-                    action: GameActionServer.playCard,
-                    data: playedCard,
-                    user: ws.data.user.id,
-                  }),
-                );
-                serverInstance?.publish(
-                  ws.data.params.id,
-                  JSON.stringify(<IGameServerMessage>{
-                    action: GameActionServer.startTurn,
-                    data: game.currentPlayer,
-                  }),
-                );
+                // serverInstance?.publish(
+                //   ws.data.params.id,
+                //   JSON.stringify(<IGameServerMessage>{
+                //     action: GameActionServer.playCard,
+                //     data: playedCard,
+                //     user: ws.data.user.id,
+                //   }),
+                // );
                 break;
               case GameAction.drawCard:
                 game.requestCardDraw(ws.data.user.id);
@@ -541,11 +528,6 @@ export const app = new Elysia()
                 const player = game.players.find((p) =>
                   p.user.equals(new mongoose.Types.ObjectId(ws.data.user.id)),
                 );
-                // const cards = await Card.find({
-                //   _id: { $in: player!.hand },
-                // })
-                //   .select("-_id")
-                //   .lean();
 
                 const cards = await Card.aggregate()
                   .match({
@@ -565,11 +547,8 @@ export const app = new Elysia()
                 );
                 break;
             }
+
             if (game?.finished) {
-              // const winningPlayers = await User.find()
-              //   .in(game.winningPlayers)
-              //   .select("username")
-              //   .lean();
               const winningPlayers = await User.aggregate()
                 .match({
                   _id: { $in: game.winningPlayers },
@@ -589,6 +568,10 @@ export const app = new Elysia()
               );
               await Game.deleteOne({ _id: game._id });
               ws.close();
+            }
+
+            for (const m of game.notifications || []) {
+              serverInstance?.publish(ws.data.params.id, JSON.stringify(m));
             }
           } catch (error: any) {
             ws.send(
