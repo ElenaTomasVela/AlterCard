@@ -1137,8 +1137,6 @@ describe("Game", () => {
         data: 0,
       } as IGameMessage),
     );
-    console.log(await waitForSocketMessage(session2));
-    console.log(await waitForSocketMessage(session2));
     session2.send(
       JSON.stringify({
         action: GameAction.accuse,
