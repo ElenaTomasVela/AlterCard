@@ -37,16 +37,10 @@ export const Game = () => {
   const { gameId } = useParams();
   const { toast } = useToast();
 
-  const getMyPlayerIndex = () => {
-    if (!game) return;
-    return game.players.findIndex((p) => p.user.username == user);
-  };
+  const myPlayerIndex = game?.players.findIndex((p) => p.user.username == user);
 
-  const getMyHand = () => {
-    const index = getMyPlayerIndex();
-    if (!game || index == undefined) return [];
-    return game.players[index].hand as ICard[];
-  };
+  const myHand =
+    myPlayerIndex != null ? (game?.players[myPlayerIndex].hand as ICard[]) : [];
 
   const getCurrentPrompt = () => {
     if (!game) return;
@@ -57,7 +51,7 @@ export const Game = () => {
 
   const playCard = async (index: number) => {
     if (!game) return;
-    const card = getMyHand()[index];
+    const card = myHand[index];
     const discardCard = game.discardPile[game.discardPile.length - 1];
     if (
       card.color != CardColor.wild &&
@@ -79,13 +73,13 @@ export const Game = () => {
       const listener = (message: MessageEvent) => {
         const msgObject: IGameServerMessage = JSON.parse(message.data);
         if (msgObject.action == GameActionServer.playCard) resolve();
-        // socket?.removeEventListener("message", listener);
+        socket?.removeEventListener("message", listener);
       };
       socket?.addEventListener("message", listener);
     });
 
     waitForPlayConfirm.then(() => {
-      const updatedHand = getMyHand().slice();
+      const updatedHand = myHand.slice();
       updatedHand.splice(index, 1);
 
       setGame((g) => {
@@ -125,6 +119,14 @@ export const Game = () => {
     );
   };
 
+  const announceLastCard = () => {
+    socket?.send(
+      JSON.stringify({
+        action: GameAction.lastCard,
+      } as IGameMessage),
+    );
+  };
+
   const handleWebsocketMessage = (message: MessageEvent) => {
     const msgObject: IGameServerMessage = JSON.parse(message.data);
     switch (msgObject.action) {
@@ -153,9 +155,26 @@ export const Game = () => {
         break;
       }
       case GameActionServer.lastCard:
+        setGame((g) => {
+          if (!g) return;
+          const updatedPlayers = g.players.map((p) =>
+            p.user._id == msgObject.user && typeof msgObject.data == "boolean"
+              ? { ...p, announcingLastCard: msgObject.data }
+              : p,
+          );
+          return { ...g, players: updatedPlayers };
+        });
         break;
-      case GameActionServer.accuse:
+      case GameActionServer.accuse: {
+        if (!game || typeof msgObject.data != "string") return;
+        const accused = game.players.find((p) => p.user._id == msgObject.data);
+        const accuser = game.players.find((p) => p.user._id == msgObject.user);
+
+        toast({
+          description: `${accuser?.user.username} accused ${accused!.user.username} of not calling their last card!`,
+        });
         break;
+      }
       case GameActionServer.startTurn:
         setGame((g) => {
           if (!g) return;
@@ -180,7 +199,9 @@ export const Game = () => {
         setGame((g) => {
           if (!g) return;
           if (!(msgObject.data instanceof Object)) return g;
-          const updatedDiscardPile = g.discardPile.concat(msgObject.data);
+          const updatedDiscardPile = g.discardPile.concat(
+            msgObject.data as ICard,
+          );
           const updatedPlayers = g.players.map((p) =>
             // The current user's hand will be dealt with separately
             p.user.username != user && p.user._id == msgObject.user
@@ -206,11 +227,26 @@ export const Game = () => {
         });
         break;
       case GameActionServer.endGame:
+        setGame((g) => {
+          if (
+            !g ||
+            msgObject.data == null ||
+            !Array.isArray(msgObject.data) ||
+            !msgObject.data.every((e) => typeof e === "string")
+          )
+            return;
+
+          return {
+            ...g,
+            finished: true,
+            winningPlayers: msgObject.data as string[],
+          };
+        });
         break;
       case GameActionServer.requestPrompt:
         if (
           game?.players.findIndex((p) => p.user._id == msgObject.user) ==
-          getMyPlayerIndex()
+          myPlayerIndex
         )
           setGame((g) => {
             if (!g) return;
@@ -253,7 +289,7 @@ export const Game = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      {game && (
+      {game && !game.finished ? (
         <>
           <div className="flex flex-col gap-4">
             <H1>{game.players[game.currentPlayer].user.username}'s turn</H1>
@@ -278,14 +314,14 @@ export const Game = () => {
                             <H3>Play drawn card?</H3>
                             <GameCard
                               className="m-auto flex-1 min-h-0 min-w-0 w-auto object-contain"
-                              card={getMyHand().slice(-1)[0]}
+                              card={myHand.slice(-1)[0]}
                             />
                             <span className="flex gap-4 mx-auto">
                               <Button
                                 variant="outline"
                                 onClick={() => {
                                   answerPrompt(true);
-                                  const updatedHand = getMyHand().slice(0, -1);
+                                  const updatedHand = myHand.slice(0, -1);
                                   setGame((g) => {
                                     if (!g) return;
                                     const updatedPlayers = g.players.map((p) =>
@@ -374,28 +410,53 @@ export const Game = () => {
                 </div>
               </div>
             </div>
-            <div className="flex justify-between px-5 h-5">
-              {getMyHand().map((c, index) => {
-                return (
-                  <button
-                    key={index}
-                    onClick={() => playCard(index)}
-                    className="flex flex-grow justify-center hover:px-16 transition-[padding]
-                   group first:hover:pl-0 last:hover:pr-0 relative mx-1 flex-auto
-                    focus:outline-none
+            <div className="flex items-center flex-wrap-reverse justify-around px-10 gap-14">
+              <Button
+                disabled={game.players[myPlayerIndex!].announcingLastCard}
+                onClick={() => announceLastCard()}
+                className={
+                  game.players[myPlayerIndex!].announcingLastCard
+                    ? "animate-pulse"
+                    : ""
+                }
+              >
+                Last Card!
+              </Button>
+              <div className="flex justify-around px-5 flex-1">
+                {myHand.map((c, index) => {
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => playCard(index)}
+                      className="justify-center transition-[margin]
+                      group relative
+                      -mx-14 first:ml-0 last:mr-0
+                      hover:-mx-2 first:hover:ml-0 last:hover:mr-0
+                      focus:outline-none
                     "
-                  >
-                    <GameCard
-                      card={c}
-                      className="shadow-lg w-24
+                    >
+                      <GameCard
+                        card={c}
+                        className="shadow-lg
                       group-hover:-translate-y-5 group-hover:rotate-2 
-                      transition-[margin,transform] absolute
-                      group-focus:ring-4 ring-primary/50 ring-offset-2 top-0"
-                    />
-                  </button>
-                );
-              })}
+                      transition-[transform]
+                      group-focus:ring-4 ring-primary/50 ring-offset-2"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="text-center">
+            <H1>The game has ended!</H1>
+            <H3>Player ranking</H3>
+            <ol className="flex flex-col list-decimal">
+              {game?.winningPlayers.map((u) => <li>{u}</li>)}
+            </ol>
           </div>
         </>
       )}

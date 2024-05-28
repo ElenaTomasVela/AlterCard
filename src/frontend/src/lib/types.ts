@@ -187,7 +187,7 @@ export interface IGameMessage {
 
 export interface IGameServerMessage {
   action: GameActionServer;
-  data?: string | number | ICard | ICard[];
+  data?: string | number | ICard | ICard[] | string[];
   user?: string;
 }
 
