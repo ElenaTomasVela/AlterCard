@@ -1,4 +1,5 @@
 import { CardColor, ICard } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import React from "react";
 
 export function GameCard({
@@ -25,8 +26,11 @@ export function GameCard({
 
   return (
     <div
-      className={`${getBgColor(card.color)} aspect-[2/3] rounded-xl flex flex-col justify-center
-      text-xl font-black w-32 text-center ${className}`}
+      className={cn(
+        `${getBgColor(card.color)} aspect-[2/3] rounded-xl flex flex-col justify-center
+      text-xl font-black w-32 text-center `,
+        className,
+      )}
     >
       <div
         className="bg-white rounded-lg p-2 h-3/5 flex flex-col justify-center whitespace-nowrap

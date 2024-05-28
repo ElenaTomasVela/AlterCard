@@ -30,6 +30,12 @@ module.exports = {
           darker: "#0071ab",
           darkest: "#004778",
         },
+        card: {
+          red: "rgb(var(--card-red) / <alpha-value>)",
+          blue: "rgb(var(--card-blue) / <alpha-value>)",
+          green: "rgb(var(--card-green) / <alpha-value>)",
+          yellow: "rgb(var(--card-yellow) / <alpha-value>)",
+        },
       },
       keyframes: {
         "accordion-down": {

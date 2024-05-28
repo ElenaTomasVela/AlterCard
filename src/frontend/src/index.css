@@ -6,5 +6,9 @@
   :root {
     --accent: 255 152 0;
     --primary: 0 208 234;
+    --card-red: 255 114 64;
+    --card-blue: 0 187 211;
+    --card-green: 63 213 107;
+    --card-yellow: 255 211 91;
   }
 }

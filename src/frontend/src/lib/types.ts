@@ -157,6 +157,7 @@ export enum GameActionServer {
   playCard = "playCard",
   viewHand = "viewHand",
   endGame = "endGame",
+  requestPrompt = "requestPrompt",
 }
 
 export enum GamePromptType {
@@ -213,4 +214,5 @@ export interface IGame {
   drawPile: { length: number };
   winningPlayers: string[];
   finished: boolean;
+  forcedColor?: CardColor;
 }
