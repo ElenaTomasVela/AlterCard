@@ -283,7 +283,19 @@ export const Game = () => {
                             <span className="flex gap-4 mx-auto">
                               <Button
                                 variant="outline"
-                                onClick={() => answerPrompt(true)}
+                                onClick={() => {
+                                  answerPrompt(true);
+                                  const updatedHand = getMyHand().slice(0, -1);
+                                  setGame((g) => {
+                                    if (!g) return;
+                                    const updatedPlayers = g.players.map((p) =>
+                                      p.user.username == user
+                                        ? { ...p, hand: updatedHand }
+                                        : p,
+                                    );
+                                    return { ...g, players: updatedPlayers };
+                                  });
+                                }}
                               >
                                 Play
                               </Button>
