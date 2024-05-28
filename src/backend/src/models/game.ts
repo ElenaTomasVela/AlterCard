@@ -245,11 +245,19 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           throw new Error(GameError.conditionsNotMet);
 
         const playedCard = await this.playCard(playerIndex, index);
+
         if (this.promptQueue.length == 0) {
           await this.nextTurn();
           this.pushNotification({
             action: GameActionServer.startTurn,
             data: this.currentPlayer,
+          });
+        } else {
+          const newPrompt = this.promptQueue.slice(-1)[0];
+          this.pushNotification({
+            action: GameActionServer.requestPrompt,
+            data: newPrompt.type,
+            user: this.players[newPrompt.player!].user._id.toString(),
           });
         }
         return playedCard!;
@@ -260,10 +268,6 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
         const card = player.hand.splice(index, 1)[0];
         this.discardPile.push(card);
-        if (this.forcedColor) {
-          this.forcedColor = undefined;
-          this.pushNotification({ action: GameActionServer.changeColor });
-        }
 
         const dbCard = await Card.findById(card).lean();
         this.pushNotification({
@@ -272,12 +276,37 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           user: player.user.toString(),
         });
         await this.handleCardEffect(card);
+        if (this.forcedColor) {
+          this.forcedColor = undefined;
+          this.pushNotification({ action: GameActionServer.changeColor });
+        }
 
         if (player.hand.length == 0) this.winningPlayers.push(player.user);
 
         return dbCard!;
       },
+      requestCardDraw(userId) {
+        const playerIndex = this.players.findIndex((p) =>
+          p.user.equals(new mongoose.Types.ObjectId(userId)),
+        );
+        if (playerIndex !== this.currentPlayer)
+          throw new Error(GameError.outOfTurn);
 
+        if (this.promptQueue.length > 0)
+          throw new Error(GameError.waitingForPrompt);
+
+        this.drawCard(playerIndex, 1);
+
+        this.promptQueue.unshift({
+          type: GamePromptType.playDrawnCard,
+          player: playerIndex,
+        });
+        this.pushNotification({
+          action: GameActionServer.requestPrompt,
+          data: GamePromptType.playDrawnCard,
+          user: this.players[playerIndex].user.toString(),
+        });
+      },
       drawCard(playerIndex, quantity = 1) {
         const player = this.players[playerIndex];
         for (let i = 0; i < quantity; i++) {
@@ -317,7 +346,8 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           p.user.equals(new mongoose.Types.ObjectId(userId)),
         );
 
-        const prompt = this.promptQueue[this.promptQueue.length - 1];
+        const promptIndex = this.promptQueue.length - 1;
+        const prompt = this.promptQueue[promptIndex];
         if (!prompt) throw new Error(GameError.notPrompted);
 
         if (playerIndex !== prompt.player) throw new Error(GameError.outOfTurn);
@@ -343,18 +373,12 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           case GamePromptType.playDrawnCard:
             const cardId = player.hand[player.hand.length - 1];
             if ((await this.isCardPlayable(cardId)) && answer) {
-              this.playCard(playerIndex, player.hand.length - 1);
-
-              this.pushNotification({
-                action: GameActionServer.playCard,
-                data: await Card.findById(cardId).lean(),
-                user: player.user.toString(),
-              });
+              await this.playCard(playerIndex, player.hand.length - 1);
             }
             break;
         }
 
-        this.promptQueue.pop();
+        this.promptQueue.splice(promptIndex, 1);
 
         const shouldSkipTurn = this.promptQueue.length == 0;
         if (shouldSkipTurn) {
@@ -363,40 +387,24 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             action: GameActionServer.startTurn,
             data: this.currentPlayer,
           });
+        } else {
+          const newPrompt = this.promptQueue.slice(-1)[0];
+          this.pushNotification({
+            action: GameActionServer.requestPrompt,
+            data: newPrompt.type,
+            user: this.players[newPrompt.player!].user._id.toString(),
+          });
         }
-      },
-      requestCardDraw(userId) {
-        const playerIndex = this.players.findIndex((p) =>
-          p.user.equals(new mongoose.Types.ObjectId(userId)),
-        );
-        if (playerIndex !== this.currentPlayer)
-          throw new Error(GameError.outOfTurn);
-
-        if (this.promptQueue.length > 0)
-          throw new Error(GameError.waitingForPrompt);
-
-        this.drawCard(playerIndex, 1);
-
-        this.promptQueue.unshift({
-          type: GamePromptType.playDrawnCard,
-          player: playerIndex,
-        });
       },
       async handleCardEffect(cardId) {
         const card = await Card.findById(cardId);
         if (!card) return;
         if (card.color == CardColor.wild) {
-          this.promptQueue.unshift({
+          this.promptQueue.push({
             type: GamePromptType.chooseColor,
             player: this.currentPlayer,
           });
-          this.pushNotification({
-            action: GameActionServer.requestPrompt,
-            user: this.players[this.currentPlayer].user.toString(),
-            data: GamePromptType.chooseColor,
-          });
         }
-
         switch (card.symbol) {
           case CardSymbol.draw2:
             break;

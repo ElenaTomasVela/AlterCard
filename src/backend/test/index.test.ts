@@ -22,6 +22,7 @@ import {
   GameAction,
   GameActionServer,
   GameError,
+  GamePromptType,
   IGame,
   IGameMessage,
   IGameServerMessage,
@@ -844,19 +845,19 @@ describe("Game", () => {
       headers: { Cookie: `authorization=${token2}` },
     });
     await waitForSocketConnection(session2);
-
     session1.send(
       JSON.stringify({
         action: GameAction.drawCard,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session1),
-      session1.send(
-        JSON.stringify({
-          action: GameAction.answerPrompt,
-          data: true,
-        } as IGameMessage),
-      );
+    await waitForSocketMessage(session1);
+    await waitForSocketMessage(session1);
+    session1.send(
+      JSON.stringify({
+        action: GameAction.answerPrompt,
+        data: true,
+      } as IGameMessage),
+    );
 
     const message = JSON.parse(
       await waitForSocketMessage(session1),
@@ -864,6 +865,54 @@ describe("Game", () => {
     const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.playCard);
     expect(message.data._id).toBe(dbPlayableCard!.id);
+    expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 1);
+    expect(gameAfter!.discardPile.length).toBe(game.discardPile.length + 1);
+    expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
+  });
+
+  test("Play drawn effect card", async () => {
+    const dbPlayableCard = await Card.findOne({
+      symbol: CardSymbol.changeColor,
+      color: CardColor.wild,
+    });
+    game.drawPile.push(dbPlayableCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+    session1.send(
+      JSON.stringify({
+        action: GameAction.drawCard,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+    await waitForSocketMessage(session1);
+    session1.send(
+      JSON.stringify({
+        action: GameAction.answerPrompt,
+        data: true,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const promptMessage = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.playCard);
+    expect(message.data._id).toBe(dbPlayableCard!.id);
+    expect(promptMessage.action).toBe(GameActionServer.requestPrompt);
+    expect(promptMessage.data).toBe(GamePromptType.chooseColor);
     expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 1);
     expect(gameAfter!.discardPile.length).toBe(game.discardPile.length + 1);
     expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
