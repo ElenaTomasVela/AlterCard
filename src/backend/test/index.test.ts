@@ -966,11 +966,196 @@ describe("Game", () => {
   test.skip("Draw 4 effect", async () => {});
   test.skip("Flip turn order effect", async () => {});
 
-  test.skip("Announce last card correctly", async () => {});
-  test.skip("Announce last card when having more cards", async () => {});
+  test("Announce last card correctly", async () => {
+    const dbPlayableCard = await Card.findOne({
+      symbol: CardSymbol.changeColor,
+      color: CardColor.wild,
+    });
+    game.players[0].hand = [dbPlayableCard!._id, dbPlayableCard!._id];
+    await game.save();
 
-  test.skip("Correct no announcement accusation", async () => {});
-  test.skip("Incorrect no announcement accusation", async () => {});
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.lastCard,
+        data: 0,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.lastCard);
+    expect(gameAfter?.players[0].announcingLastCard).toBe(true);
+  });
+  test("Announce last card when having more cards", async () => {
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.lastCard,
+        data: 0,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.conditionsNotMet);
+    expect(gameAfter?.players[0].announcingLastCard).toBe(false);
+  });
+
+  test("Announce last card when having more cards", async () => {
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.lastCard,
+        data: 0,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.conditionsNotMet);
+    expect(gameAfter?.players[0].announcingLastCard).toBe(false);
+  });
+
+  test("Correct no announcement accusation", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.red,
+    });
+    game.players[0].hand = [dbHandCard!._id, dbHandCard!._id];
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+    await waitForSocketMessage(session1);
+    session2.send(
+      JSON.stringify({
+        action: GameAction.accuse,
+        data: game.players[0].user.toString(),
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.accuse);
+    expect(gameAfter?.players[0].hand.length).toBe(
+      game.players[0].hand.length + 1,
+    );
+  });
+  test("Incorrect no announcement accusation", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.red,
+    });
+    game.players[0].hand = [dbHandCard!._id, dbHandCard!._id];
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({ action: GameAction.lastCard } as IGameMessage),
+    );
+    await waitForSocketMessage(session2);
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+    console.log(await waitForSocketMessage(session2));
+    console.log(await waitForSocketMessage(session2));
+    session2.send(
+      JSON.stringify({
+        action: GameAction.accuse,
+        data: game.players[0].user.toString(),
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session2),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.conditionsNotMet);
+    expect(gameAfter?.players[0].hand.length).toBe(
+      game.players[0].hand.length - 1,
+    );
+  });
 
   test.skip("Correct draw 4 accusation", async () => {});
   test.skip("Incorrect draw 4 accusation", async () => {});

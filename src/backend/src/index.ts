@@ -439,7 +439,7 @@ export const app = new Elysia()
               select: "-__v -password",
             },
           })
-          .select("-_id -__v")
+          .select("-_id -__v -players.accusable")
           .transform((d) => {
             const newPlayers = d?.players.map((p) =>
               p.user.equals(new mongoose.Types.ObjectId(user.id))
@@ -480,9 +480,12 @@ export const app = new Elysia()
           try {
             switch (message.action) {
               case GameAction.lastCard:
-                game.announceLastCard(ws.data.user.id);
+                await game.announceLastCard(ws.data.user.id);
                 break;
               case GameAction.accuse:
+                if (!message.data || typeof message.data != "string")
+                  throw new Error(GameError.invalidAction);
+                game.accusePlayer(ws.data.user.id, message.data);
                 break;
               case GameAction.answerPrompt:
                 await game.handlePlayerPrompt(ws.data.user.id, message.data);
@@ -499,30 +502,10 @@ export const app = new Elysia()
                     message.data,
                   );
 
-                const playedCard = await game.requestPlayCard(
-                  ws.data.user.id,
-                  message.data,
-                );
-                // serverInstance?.publish(
-                //   ws.data.params.id,
-                //   JSON.stringify(<IGameServerMessage>{
-                //     action: GameActionServer.playCard,
-                //     data: playedCard,
-                //     user: ws.data.user.id,
-                //   }),
-                // );
+                await game.requestPlayCard(ws.data.user.id, message.data);
                 break;
               case GameAction.drawCard:
                 game.requestCardDraw(ws.data.user.id);
-
-                serverInstance?.publish(
-                  ws.data.params.id,
-                  JSON.stringify(<IGameServerMessage>{
-                    action: GameActionServer.draw,
-                    data: 1,
-                    user: ws.data.user.id,
-                  }),
-                );
                 break;
               case GameAction.viewHand:
                 const player = game.players.find((p) =>
@@ -569,6 +552,7 @@ export const app = new Elysia()
               await Game.deleteOne({ _id: game._id });
               ws.close();
             }
+            await game.save();
 
             for (const m of game.notifications || []) {
               serverInstance?.publish(ws.data.params.id, JSON.stringify(m));
@@ -581,8 +565,6 @@ export const app = new Elysia()
               }),
             );
           }
-
-          game.save();
         },
       }),
   )

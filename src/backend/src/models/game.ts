@@ -14,6 +14,7 @@ export interface IPlayer {
   user: mongoose.Types.ObjectId;
   hand: mongoose.Types.ObjectId[];
   announcingLastCard: boolean;
+  accusable: boolean;
 }
 
 const PlayerSchema = new mongoose.Schema<IPlayer>({
@@ -29,6 +30,10 @@ const PlayerSchema = new mongoose.Schema<IPlayer>({
     },
   ],
   announcingLastCard: {
+    type: Boolean,
+    default: false,
+  },
+  accusable: {
     type: Boolean,
     default: false,
   },
@@ -111,6 +116,7 @@ export interface IGame {
 
 interface IGameMethods {
   announceLastCard(userId: string): Promise<void>;
+  accusePlayer(accuserId: string, accusedId: string): void;
   isCardPlayable(cardId: mongoose.Types.ObjectId): Promise<boolean>;
   playCard(playerIndex: number, index: number): Promise<ICard>;
   requestPlayCard(userId: string, index: number): Promise<ICard>;
@@ -194,11 +200,12 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
       },
       async canAnnounceLastCard(userId) {
         const playerIndex = this.players.findIndex(
-          (p) => p.user == new mongoose.Types.ObjectId(userId),
+          (p) => p.user.toString() == userId,
         );
         const player = this.players[playerIndex];
 
         return (
+          player &&
           !player.announcingLastCard &&
           player.hand.length == 2 &&
           this.currentPlayer === playerIndex &&
@@ -207,12 +214,31 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
       },
 
       async announceLastCard(userId) {
-        if (!this.canAnnounceLastCard(userId))
+        if (!(await this.canAnnounceLastCard(userId)))
           throw new Error(GameError.conditionsNotMet);
-        const player = this.players.find(
-          (p) => p.user == new mongoose.Types.ObjectId(userId),
-        );
+        const player = this.players.find((p) => p.user.toString() == userId);
         player!.announcingLastCard = true;
+        this.pushNotification({
+          action: GameActionServer.lastCard,
+          user: userId,
+        });
+      },
+
+      accusePlayer(accuserId, accusedId) {
+        const accusedIndex = this.players.findIndex(
+          (p) => p.user.toString() == accusedId,
+        );
+        const accused = this.players[accusedIndex];
+        if (!accused) throw new Error(GameError.invalidAction);
+        if (!accused.accusable) throw new Error(GameError.conditionsNotMet);
+
+        accused.accusable = false;
+        this.pushNotification({
+          action: GameActionServer.accuse,
+          data: accusedId,
+          user: accuserId,
+        });
+        this.drawCard(accusedIndex, 2);
       },
 
       async isCardPlayable(cardId) {
@@ -323,9 +349,25 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           const card = this.drawPile.pop();
           player!.hand.push(card!);
         }
+        this.pushNotification({
+          action: GameActionServer.draw,
+          data: 1,
+          user: player.user.toString(),
+        });
       },
 
       async nextTurn() {
+        // End of turn resolve
+        this.players
+          .filter((p) => p.accusable)
+          .forEach((p) => (p.accusable = false));
+        if (
+          this.players[this.currentPlayer].hand.length == 1 &&
+          !this.players[this.currentPlayer].announcingLastCard
+        )
+          this.players[this.currentPlayer].accusable = true;
+
+        // Change turn
         const orientation = this.clockwiseTurns ? 1 : -1;
         do {
           this.currentPlayer =
@@ -334,7 +376,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           // Skip players that already won
         } while (this.players[this.currentPlayer].hand.length == 0);
 
-        // finish game
+        // Finish game
         if (this.winningPlayers.length == this.players.length - 1) {
           this.finished = true;
           this.winningPlayers.push(this.players[this.currentPlayer].user);
@@ -430,7 +472,13 @@ export const gameFromWaitingRoom = async (waitingRoom: IWaitingRoom) => {
 
   const cards = deck.cards;
   const players = waitingRoom.users.map(
-    (u) => <IPlayer>{ user: u.user, hand: [], announcingLastCard: false },
+    (u) =>
+      <IPlayer>{
+        user: u.user,
+        hand: [],
+        announcingLastCard: false,
+        accusable: false,
+      },
   );
 
   // Using mutating methods for simplicity
