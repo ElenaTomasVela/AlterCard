@@ -546,7 +546,7 @@ export const app = new Elysia()
                 ws.data.params.id,
                 JSON.stringify(<IGameServerMessage>{
                   action: GameActionServer.endGame,
-                  data: winningPlayers,
+                  data: winningPlayers.map((p) => p.username),
                 }),
               );
               await Game.deleteOne({ _id: game._id });

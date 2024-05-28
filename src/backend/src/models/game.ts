@@ -220,6 +220,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         player!.announcingLastCard = true;
         this.pushNotification({
           action: GameActionServer.lastCard,
+          data: true,
           user: userId,
         });
       },
@@ -354,6 +355,14 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           data: 1,
           user: player.user.toString(),
         });
+        if (player.announcingLastCard) {
+          player.announcingLastCard = false;
+          this.pushNotification({
+            action: GameActionServer.lastCard,
+            data: false,
+            user: player.user.toString(),
+          });
+        }
       },
 
       async nextTurn() {
