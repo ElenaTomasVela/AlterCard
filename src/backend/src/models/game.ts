@@ -352,7 +352,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         }
         this.pushNotification({
           action: GameActionServer.draw,
-          data: 1,
+          data: quantity,
           user: player.user.toString(),
         });
         if (player.announcingLastCard) {
