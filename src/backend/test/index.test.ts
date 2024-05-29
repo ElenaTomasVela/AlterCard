@@ -1004,7 +1004,43 @@ describe("Game", () => {
     expect(gameAfter?.currentPlayer).toBe(0);
   });
   test.skip("Draw 4 effect", async () => {});
-  test.skip("Flip turn order effect", async () => {});
+  test("Flip turn order effect", async () => {
+    const handCard = {
+      symbol: CardSymbol.reverseTurn,
+      color: CardColor.red,
+    } as ICard;
+    const discardCard = {
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    } as ICard;
+    const dbHandCard = await Card.findOne(handCard);
+    const dbDiscardCard = await Card.findOne(discardCard);
+    game.players[0].hand.push(dbHandCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 7,
+      } as IGameMessage),
+    );
+
+    await waitForSocketMessage(session2);
+    const gameAfter = await Game.findById(game._id);
+    expect(gameAfter?.clockwiseTurns).toBe(!game.clockwiseTurns);
+  });
 
   test("Announce last card correctly", async () => {
     const dbPlayableCard = await Card.findOne({
