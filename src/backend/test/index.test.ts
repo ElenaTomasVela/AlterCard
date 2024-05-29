@@ -25,6 +25,7 @@ import {
   GamePromptType,
   IGame,
   IGameMessage,
+  IGamePrompt,
   IGameServerMessage,
   gameFromWaitingRoom,
 } from "../src/models/game";
@@ -655,8 +656,6 @@ describe("Game", () => {
     });
     game = await gameFromWaitingRoom(waitingRoom);
   });
-  test.skip("Draw when starting turn", async () => {});
-  test.skip("Game end when 1 player remaining", async () => {});
 
   test.each([
     [
@@ -911,7 +910,7 @@ describe("Game", () => {
     expect(message.action).toBe(GameActionServer.playCard);
     expect(message.data._id).toBe(dbPlayableCard!.id);
     expect(promptMessage.action).toBe(GameActionServer.requestPrompt);
-    expect(promptMessage.data).toBe(GamePromptType.chooseColor);
+    expect(promptMessage.data.type).toBe(GamePromptType.chooseColor);
     expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 1);
     expect(gameAfter!.discardPile.length).toBe(game.discardPile.length + 1);
     expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
@@ -996,7 +995,6 @@ describe("Game", () => {
       } as IGameMessage),
     );
     await waitForSocketMessage(session2);
-    await waitForSocketMessage(session2);
     session2.send(
       JSON.stringify({
         action: GameAction.answerPrompt,
@@ -1011,8 +1009,68 @@ describe("Game", () => {
     const gameAfter = await Game.findById(game._id);
     const prompt = gameAfter?.promptQueue.slice(-1)[0];
     expect(message.action).toBe(GameActionServer.requestPrompt);
-    expect(message.data).toBe(GamePromptType.stackDrawCard);
+    expect(message.data.type).toBe(GamePromptType.stackDrawCard);
     expect(prompt!.data).toBe(4);
+  });
+
+  test("Stack Wild Draw cards", async () => {
+    const handCard = {
+      symbol: CardSymbol.draw4,
+      color: CardColor.wild,
+    } as ICard;
+    const dbHandCard = await Card.findOne(handCard);
+    game.players[0].hand.push(dbHandCard!._id);
+    game.players[1].hand.push(dbHandCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 7,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+    await waitForSocketMessage(session1);
+    session2.send(
+      JSON.stringify({
+        action: GameAction.answerPrompt,
+        data: 7,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+    session1.send(
+      JSON.stringify({
+        action: GameAction.answerPrompt,
+        data: false,
+      } as IGameMessage),
+    );
+
+    const drawMessage = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    const prompt = gameAfter?.promptQueue[0];
+    expect(prompt!.type).toBe(GamePromptType.chooseColor);
+    expect(prompt!.player).toBe(1);
+    expect(drawMessage.action).toBe(GameActionServer.draw);
+    expect(drawMessage.data).toBe(8);
+    expect(message.action).toBe(GameActionServer.requestPrompt);
+    expect(message.data.type).toBe(GamePromptType.chooseColor);
+    expect(message.data.player).toBe(1);
   });
 
   test("Skip turn effect", async () => {
