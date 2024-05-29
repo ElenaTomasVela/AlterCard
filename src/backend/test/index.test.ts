@@ -787,7 +787,6 @@ describe("Game", () => {
     expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
   });
 
-  test.skip("Choose color after playing wildcard", async () => {});
   test.skip("Invalid action after playing wildcard", async () => {});
 
   test("Draw card", async () => {
@@ -962,7 +961,48 @@ describe("Game", () => {
   });
 
   test.skip("Draw 2 effect", async () => {});
-  test.skip("Skip turn effect", async () => {});
+  test("Skip turn effect", async () => {
+    const handCard = {
+      symbol: CardSymbol.skipTurn,
+      color: CardColor.red,
+    } as ICard;
+    const discardCard = {
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    } as ICard;
+    const dbHandCard = await Card.findOne(handCard);
+    const dbDiscardCard = await Card.findOne(discardCard);
+    game.players[0].hand.push(dbHandCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 7,
+      } as IGameMessage),
+    );
+
+    await waitForSocketMessage(session2);
+    const message = JSON.parse(
+      await waitForSocketMessage(session2),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.startTurn);
+    expect(message.data).toBe(0);
+    expect(gameAfter?.currentPlayer).toBe(0);
+  });
   test.skip("Draw 4 effect", async () => {});
   test.skip("Flip turn order effect", async () => {});
 
@@ -1196,9 +1236,7 @@ describe("Game", () => {
     ) as IGameServerMessage;
     const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.endGame);
-    expect(new mongoose.Types.ObjectId(message.data[0]._id)).toEqual(
-      game.players[0].user,
-    );
+    expect(message.data[0]).toEqual(users[1].username);
     expect(gameAfter).toBeNull();
   });
 });

@@ -106,6 +106,7 @@ export interface IGame {
   clockwiseTurns: boolean;
   forcedColor?: CardColor;
   notifications: IGameServerMessage[];
+  turnsToSkip: number;
   houseRules: houseRule[];
   players: IPlayer[];
   discardPile: mongoose.Types.ObjectId[];
@@ -378,12 +379,14 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
         // Change turn
         const orientation = this.clockwiseTurns ? 1 : -1;
-        do {
-          this.currentPlayer =
-            (this.currentPlayer + orientation + this.players.length) %
-            this.players.length;
-          // Skip players that already won
-        } while (this.players[this.currentPlayer].hand.length == 0);
+        for (let n = 0; n < 1 + (this.turnsToSkip || 0); n++) {
+          do {
+            this.currentPlayer =
+              (this.currentPlayer + orientation + this.players.length) %
+              this.players.length;
+            // Skip players that already won
+          } while (this.players[this.currentPlayer].hand.length == 0);
+        }
 
         // Finish game
         if (this.winningPlayers.length == this.players.length - 1) {
@@ -458,14 +461,20 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         }
         switch (card.symbol) {
           case CardSymbol.draw2:
+            this.turnsToSkip = 1;
             break;
           case CardSymbol.draw4:
+            this.turnsToSkip = 1;
             break;
           case CardSymbol.skipTurn:
+            this.turnsToSkip = 1;
             break;
           case CardSymbol.reverseTurn:
+            this.clockwiseTurns = !this.clockwiseTurns;
             break;
           case CardSymbol.changeColor:
+            break;
+          default:
             break;
         }
       },
