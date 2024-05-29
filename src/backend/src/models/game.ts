@@ -270,6 +270,9 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
       },
 
       async requestPlayCard(userId, index) {
+        if (this.promptQueue.length > 0)
+          throw new Error(GameError.waitingForPrompt);
+
         const playerIndex = this.players.findIndex((p) =>
           p.user.equals(new mongoose.Types.ObjectId(userId)),
         );
