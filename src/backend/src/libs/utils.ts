@@ -25,9 +25,10 @@ export function dealCards(players: IPlayer[], deck: mongoose.Types.ObjectId[]) {
   }
 }
 
-export function getFirstNonWild(deck: mongoose.Types.ObjectId[]) {
-  const index = deck.findIndex(async (card) => {
-    const dbCard = await Card.findById(card);
+export async function getFirstNonWild(deck: mongoose.Types.ObjectId[]) {
+  const promises = deck.map(async (c) => await Card.findById(c));
+  const results = await Promise.all(promises);
+  const index = results.findIndex((dbCard) => {
     return dbCard?.color !== CardColor.wild;
   });
   return deck.splice(index, 1)[0];

@@ -548,7 +548,7 @@ export const gameFromWaitingRoom = async (waitingRoom: IWaitingRoom) => {
   // Using mutating methods for simplicity
   shuffle(cards);
   dealCards(players, cards);
-  const discardPile = getFirstNonWild(cards);
+  const discardPile = await getFirstNonWild(cards);
 
   const game = new Game({
     players: players,
