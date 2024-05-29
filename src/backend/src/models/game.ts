@@ -293,7 +293,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           const newPrompt = this.promptQueue[0];
           this.pushNotification({
             action: GameActionServer.requestPrompt,
-            data: newPrompt.type,
+            data: newPrompt,
             user: this.players[newPrompt.player!].user._id.toString(),
           });
         }
@@ -334,13 +334,14 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
         this.drawCard(playerIndex, 1);
 
-        this.promptQueue.push({
+        const newPrompt = {
           type: GamePromptType.playDrawnCard,
           player: playerIndex,
-        });
+        };
+        this.promptQueue.push(newPrompt);
         this.pushNotification({
           action: GameActionServer.requestPrompt,
-          data: GamePromptType.playDrawnCard,
+          data: newPrompt,
           user: this.players[playerIndex].user.toString(),
         });
       },
@@ -400,7 +401,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           const prompt = this.promptQueue[0];
           this.pushNotification({
             action: GameActionServer.requestPrompt,
-            data: prompt.type,
+            data: prompt,
             user: this.players[prompt.player!].user._id.toString(),
           });
         }
@@ -484,7 +485,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           const newPrompt = this.promptQueue[0];
           this.pushNotification({
             action: GameActionServer.requestPrompt,
-            data: newPrompt.type,
+            data: newPrompt,
             user: this.players[newPrompt.player!].user._id.toString(),
           });
         }
