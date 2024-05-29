@@ -1,6 +1,14 @@
 import { GameCard, CardBack } from "@/components/GameCard";
 import { H1, H2, H3 } from "@/components/Headings";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast, useToast } from "@/components/ui/use-toast";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";
 import {
@@ -16,15 +24,48 @@ import {
   IPlayer,
 } from "@/lib/types";
 import { api, waitForSocketConnection } from "@/lib/utils";
+import { Icon } from "@iconify/react/dist/iconify.js";
 import React, { useContext, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
-const Player = ({ player }: { player: IPlayer }) => {
+const Player = ({
+  player,
+  onAccuse,
+}: {
+  player: IPlayer;
+  onAccuse: (player: IPlayer) => void;
+}) => {
   return (
     <div className="flex gap-3 items-center">
-      <span>{player.user.username}</span>
-      <span className="bg-accent/30 rounded-full px-2 py-1">
-        {player.hand.length} cards left
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="flex gap-3 items-center group focus:outline-none px-3
+            focus:ring-primary/30 focus:ring rounded-full"
+          >
+            {player.user.username}
+            <Icon
+              icon="lucide:chevron-right"
+              className="group-radix-state-open:rotate-90 transition-all"
+            />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={10}>
+          <DropdownMenuLabel>Player actions</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onAccuse(player)}>
+            <Icon icon="iconoir:megaphone" className="size-4 mr-2" />
+            Accuse
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <span className="bg-accent/30 rounded-full px-2 py-1 relative">
+        {player.announcingLastCard && (
+          <span className="absolute bg-accent top-0 inset-x-0 mx-auto h-full w-3/4 animate-ping rounded-full"></span>
+        )}
+        <span className="relative inline-flex">
+          {player.hand.length} {player.hand.length == 1 ? "card" : "cards"} left
+        </span>
       </span>
     </div>
   );
@@ -38,9 +79,9 @@ export const Game = () => {
   const { toast } = useToast();
 
   const myPlayerIndex = game?.players.findIndex((p) => p.user.username == user);
+  const myPlayer = game?.players[myPlayerIndex!];
 
-  const myHand =
-    myPlayerIndex != null ? (game?.players[myPlayerIndex].hand as ICard[]) : [];
+  const myHand = myPlayer != null ? (myPlayer.hand as ICard[]) : [];
 
   const getCurrentPrompt = () => {
     if (!game) return;
@@ -93,8 +134,6 @@ export const Game = () => {
           discardPile: g.discardPile.concat(card),
         };
       });
-      // const prompt = game.promptQueue.slice(-1)[0];
-      // if (prompt.player == getMyPlayerIndex()) setPrompt(prompt.type);
     });
   };
 
@@ -124,6 +163,15 @@ export const Game = () => {
       JSON.stringify({
         action: GameAction.lastCard,
       } as IGameMessage),
+    );
+  };
+
+  const accuse = (player: IPlayer) => {
+    socket?.send(
+      JSON.stringify({
+        action: GameAction.accuse,
+        data: player.user._id,
+      }),
     );
   };
 
@@ -280,7 +328,7 @@ export const Game = () => {
     return () => {
       ws.then((ws) => ws.close());
     };
-  }, []);
+  }, [gameId]);
 
   useEffect(() => {
     socket?.addEventListener("message", handleWebsocketMessage);
@@ -298,7 +346,7 @@ export const Game = () => {
                 {game.players
                   .filter((p) => p.user.username != user)
                   .map((p) => (
-                    <Player player={p} key={p.user._id} />
+                    <Player player={p} key={p.user._id} onAccuse={accuse} />
                   ))}
               </div>
               <div className="relative flex-1 pb-5">
@@ -395,8 +443,8 @@ export const Game = () => {
                     }
                   </div>
                 )}
-                <div className="flex gap-3 w-fit mx-auto">
-                  <button onClick={() => drawCard()}>
+                <div className="flex gap-3 w-fit mx-auto hover:cursor-pointer">
+                  <button onClick={drawCard}>
                     <CardBack />
                   </button>
                   <GameCard
@@ -412,15 +460,14 @@ export const Game = () => {
             </div>
             <div className="flex items-center flex-wrap-reverse justify-around px-10 gap-14">
               <Button
-                disabled={game.players[myPlayerIndex!].announcingLastCard}
+                disabled={myPlayer!.announcingLastCard}
                 onClick={() => announceLastCard()}
-                className={
-                  game.players[myPlayerIndex!].announcingLastCard
-                    ? "animate-pulse"
-                    : ""
-                }
+                className={`relative ${myPlayer?.announcingLastCard && "bg-yellow-500"}`}
               >
-                Last Card!
+                {myPlayer?.announcingLastCard && (
+                  <span className="absolute bg-accent size-full rounded-md animate-ping"></span>
+                )}
+                <span className="relative inline-flex">Last Card!</span>
               </Button>
               <div className="flex justify-around px-5 flex-1">
                 {myHand.map((c, index) => {
