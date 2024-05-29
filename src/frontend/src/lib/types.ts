@@ -178,6 +178,7 @@ export enum GameError {
 export interface IGamePrompt {
   type: GamePromptType;
   player?: number;
+  data?: number;
 }
 
 export interface IGameMessage {
@@ -187,7 +188,7 @@ export interface IGameMessage {
 
 export interface IGameServerMessage {
   action: GameActionServer;
-  data?: string | number | ICard | ICard[] | string[];
+  data?: string | number | ICard | ICard[] | string[] | IGamePrompt;
   user?: string;
 }
 

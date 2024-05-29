@@ -85,9 +85,9 @@ export const Game = () => {
 
   const getCurrentPrompt = () => {
     if (!game) return;
-    const prompt = game?.promptQueue.slice(-1)[0];
+    const prompt = game?.promptQueue[0];
     if (prompt && game.players[prompt.player!].user.username == user)
-      return prompt.type;
+      return prompt;
   };
 
   const playCard = async (index: number) => {
@@ -298,10 +298,7 @@ export const Game = () => {
         )
           setGame((g) => {
             if (!g) return;
-            const prompt = {
-              type: msgObject.data,
-              player: g.players.findIndex((p) => p.user._id == msgObject.user!),
-            } as IGamePrompt;
+            const prompt = msgObject.data as IGamePrompt;
             return { ...g, promptQueue: g.promptQueue.concat(prompt) };
           });
         break;
@@ -438,8 +435,24 @@ export const Game = () => {
                             </div>
                           </>
                         ),
-                        [GamePromptType.stackDrawCard]: <></>,
-                      }[getCurrentPrompt()!]
+                        [GamePromptType.stackDrawCard]: (
+                          <>
+                            <H3 className="w-full text-wrap mb-4">
+                              A stack of {getCurrentPrompt()!.data} cards
+                              approaches!{" "}
+                            </H3>
+                            <span>
+                              Play another Draw card to continue the stack
+                            </span>
+                            <Button
+                              onClick={() => answerPrompt(false)}
+                              className="w-fit mx-auto"
+                            >
+                              Don't counter
+                            </Button>
+                          </>
+                        ),
+                      }[getCurrentPrompt()!.type]
                     }
                   </div>
                 )}
@@ -474,7 +487,11 @@ export const Game = () => {
                   return (
                     <button
                       key={index}
-                      onClick={() => playCard(index)}
+                      onClick={() =>
+                        getCurrentPrompt()?.type == GamePromptType.stackDrawCard
+                          ? answerPrompt(index)
+                          : playCard(index)
+                      }
                       className="justify-center transition-[margin]
                       group relative
                       -mx-14 first:ml-0 last:mr-0
