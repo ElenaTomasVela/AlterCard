@@ -78,6 +78,7 @@ export enum GameError {
 
 export interface IGamePrompt {
   type: GamePromptType;
+  data?: number;
   player?: number;
 }
 
@@ -117,6 +118,7 @@ export interface IGame {
 
 interface IGameMethods {
   announceLastCard(userId: string): Promise<void>;
+  nextPlayerIndex(): number;
   accusePlayer(accuserId: string, accusedId: string): void;
   isCardPlayable(cardId: mongoose.Types.ObjectId): Promise<boolean>;
   playCard(playerIndex: number, index: number): Promise<ICard>;
@@ -195,6 +197,16 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
   },
   {
     methods: {
+      nextPlayerIndex() {
+        let counter = this.currentPlayer;
+        const orientation = this.clockwiseTurns ? 1 : -1;
+        do {
+          counter =
+            (counter + orientation + this.players.length) % this.players.length;
+          // Skip players that already won
+        } while (this.players[this.currentPlayer].hand.length == 0);
+        return counter;
+      },
       pushNotification(notification) {
         if (this.notifications == undefined) this.notifications = [];
         this.notifications.push(notification);
@@ -378,14 +390,8 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           this.players[this.currentPlayer].accusable = true;
 
         // Change turn
-        const orientation = this.clockwiseTurns ? 1 : -1;
-        for (let n = 0; n < 1 + (this.turnsToSkip || 0); n++) {
-          do {
-            this.currentPlayer =
-              (this.currentPlayer + orientation + this.players.length) %
-              this.players.length;
-            // Skip players that already won
-          } while (this.players[this.currentPlayer].hand.length == 0);
+        for (let n = 0; n < (this.turnsToSkip + 1 || 1); n++) {
+          this.currentPlayer = this.nextPlayerIndex();
         }
 
         // Finish game
@@ -423,6 +429,31 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             });
             break;
           case GamePromptType.stackDrawCard:
+            if (answer == null || typeof answer !== "number") {
+              this.drawCard(this.currentPlayer, prompt.data!);
+              this.nextTurn();
+            } else {
+              const cardId = this.players[this.currentPlayer].hand[answer];
+              if (!(await this.isCardPlayable(cardId)))
+                throw new Error(GameError.conditionsNotMet);
+              const card = await Card.findById(cardId);
+              const cardsToDraw =
+                card!.symbol == CardSymbol.draw2 ? 2 : CardSymbol.draw4 ? 4 : 0;
+              // Replace prompt with new prompt for next player
+              this.promptQueue.splice(promptIndex + 1, 0, {
+                type: GamePromptType.stackDrawCard,
+                data: cardsToDraw,
+                player: this.nextPlayerIndex(),
+              });
+
+              const chooseColorPrompt = this.promptQueue.find(
+                (p) => p.type == GamePromptType.chooseColor,
+              );
+              if (chooseColorPrompt) {
+                chooseColorPrompt.player = this.nextPlayerIndex();
+              }
+            }
+
             break;
           case GamePromptType.playDrawnCard:
             const cardId = player.hand[player.hand.length - 1];
@@ -454,17 +485,25 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         const card = await Card.findById(cardId);
         if (!card) return;
         if (card.color == CardColor.wild) {
-          this.promptQueue.push({
+          this.promptQueue.unshift({
             type: GamePromptType.chooseColor,
             player: this.currentPlayer,
           });
         }
         switch (card.symbol) {
           case CardSymbol.draw2:
-            this.turnsToSkip = 1;
+            this.promptQueue.unshift({
+              type: GamePromptType.stackDrawCard,
+              data: 2,
+              player: this.nextPlayerIndex(),
+            });
             break;
           case CardSymbol.draw4:
-            this.turnsToSkip = 1;
+            this.promptQueue.unshift({
+              type: GamePromptType.stackDrawCard,
+              data: 4,
+              player: this.nextPlayerIndex(),
+            });
             break;
           case CardSymbol.skipTurn:
             this.turnsToSkip = 1;
