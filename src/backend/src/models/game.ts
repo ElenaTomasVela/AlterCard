@@ -88,6 +88,7 @@ const GamePromptSchema = new mongoose.Schema<IGamePrompt>({
     enum: Object.values(GamePromptType),
   },
   player: Number,
+  data: Number,
 });
 
 export interface IGameMessage {
@@ -124,7 +125,7 @@ interface IGameMethods {
   playCard(playerIndex: number, index: number): Promise<ICard>;
   requestPlayCard(userId: string, index: number): Promise<ICard>;
   canAnnounceLastCard(userId: string): Promise<boolean>;
-  nextTurn(): Promise<void>;
+  nextTurn(): void;
   drawCard(playerIndex: number, quantity: number): void;
   handlePlayerPrompt(
     userId: string,
@@ -204,7 +205,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           counter =
             (counter + orientation + this.players.length) % this.players.length;
           // Skip players that already won
-        } while (this.players[this.currentPlayer].hand.length == 0);
+        } while (this.players[counter].hand.length == 0);
         return counter;
       },
       pushNotification(notification) {
@@ -287,13 +288,9 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         const playedCard = await this.playCard(playerIndex, index);
 
         if (this.promptQueue.length == 0) {
-          await this.nextTurn();
-          this.pushNotification({
-            action: GameActionServer.startTurn,
-            data: this.currentPlayer,
-          });
+          this.nextTurn();
         } else {
-          const newPrompt = this.promptQueue.slice(-1)[0];
+          const newPrompt = this.promptQueue[0];
           this.pushNotification({
             action: GameActionServer.requestPrompt,
             data: newPrompt.type,
@@ -337,7 +334,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
         this.drawCard(playerIndex, 1);
 
-        this.promptQueue.unshift({
+        this.promptQueue.push({
           type: GamePromptType.playDrawnCard,
           player: playerIndex,
         });
@@ -378,7 +375,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         }
       },
 
-      async nextTurn() {
+      nextTurn() {
         // End of turn resolve
         this.players
           .filter((p) => p.accusable)
@@ -394,6 +391,20 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           this.currentPlayer = this.nextPlayerIndex();
         }
 
+        this.pushNotification({
+          action: GameActionServer.startTurn,
+          data: this.currentPlayer,
+        });
+
+        if (this.promptQueue.length !== 0) {
+          const prompt = this.promptQueue[0];
+          this.pushNotification({
+            action: GameActionServer.requestPrompt,
+            data: prompt.type,
+            user: this.players[prompt.player!].user._id.toString(),
+          });
+        }
+
         // Finish game
         if (this.winningPlayers.length == this.players.length - 1) {
           this.finished = true;
@@ -406,7 +417,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           p.user.equals(new mongoose.Types.ObjectId(userId)),
         );
 
-        const promptIndex = this.promptQueue.length - 1;
+        const promptIndex = 0;
         const prompt = this.promptQueue[promptIndex];
         if (!prompt) throw new Error(GameError.notPrompted);
 
@@ -430,10 +441,9 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             break;
           case GamePromptType.stackDrawCard:
             if (answer == null || typeof answer !== "number") {
-              this.drawCard(this.currentPlayer, prompt.data!);
-              this.nextTurn();
+              this.drawCard(prompt.player, prompt.data!);
             } else {
-              const cardId = this.players[this.currentPlayer].hand[answer];
+              const cardId = this.players[prompt.player].hand[answer];
               if (!(await this.isCardPlayable(cardId)))
                 throw new Error(GameError.conditionsNotMet);
               const card = await Card.findById(cardId);
@@ -442,7 +452,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
               // Replace prompt with new prompt for next player
               this.promptQueue.splice(promptIndex + 1, 0, {
                 type: GamePromptType.stackDrawCard,
-                data: cardsToDraw,
+                data: cardsToDraw + prompt.data!,
                 player: this.nextPlayerIndex(),
               });
 
@@ -463,17 +473,15 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             break;
         }
 
-        this.promptQueue.splice(promptIndex, 1);
+        this.promptQueue.shift();
 
-        const shouldSkipTurn = this.promptQueue.length == 0;
+        const shouldSkipTurn =
+          this.promptQueue.length == 0 ||
+          this.promptQueue[0].player != this.currentPlayer;
         if (shouldSkipTurn) {
           this.nextTurn();
-          this.pushNotification({
-            action: GameActionServer.startTurn,
-            data: this.currentPlayer,
-          });
         } else {
-          const newPrompt = this.promptQueue.slice(-1)[0];
+          const newPrompt = this.promptQueue[0];
           this.pushNotification({
             action: GameActionServer.requestPrompt,
             data: newPrompt.type,
@@ -484,22 +492,16 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
       async handleCardEffect(cardId) {
         const card = await Card.findById(cardId);
         if (!card) return;
-        if (card.color == CardColor.wild) {
-          this.promptQueue.unshift({
-            type: GamePromptType.chooseColor,
-            player: this.currentPlayer,
-          });
-        }
         switch (card.symbol) {
           case CardSymbol.draw2:
-            this.promptQueue.unshift({
+            this.promptQueue.push({
               type: GamePromptType.stackDrawCard,
               data: 2,
               player: this.nextPlayerIndex(),
             });
             break;
           case CardSymbol.draw4:
-            this.promptQueue.unshift({
+            this.promptQueue.push({
               type: GamePromptType.stackDrawCard,
               data: 4,
               player: this.nextPlayerIndex(),
@@ -515,6 +517,12 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             break;
           default:
             break;
+        }
+        if (card.color == CardColor.wild) {
+          this.promptQueue.push({
+            type: GamePromptType.chooseColor,
+            player: this.currentPlayer,
+          });
         }
       },
     },
