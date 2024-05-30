@@ -21,17 +21,16 @@ import {
 } from "./models/waitingRoom";
 import { connectDB } from "./libs/db";
 import {
-  Game,
   GameAction,
   GameActionServer,
   GameError,
   IGame,
   IGameServerMessage,
-  gameFromWaitingRoom,
-} from "./models/game";
+} from "./models/game/types";
 import { houseRule } from "./models/houseRule";
 import { Card, CardColor, CardDeck, ICard } from "./models/card";
 import mongoose from "mongoose";
+import { gameFromWaitingRoom, Game } from "./models/game/schema";
 
 // Typescript needs to know that the env variables are defined
 declare module "bun" {

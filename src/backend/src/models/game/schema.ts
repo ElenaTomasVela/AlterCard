@@ -1,21 +1,18 @@
 import mongoose from "mongoose";
-import { houseRule } from "./houseRule";
-import { IWaitingRoom } from "./waitingRoom";
-import { Card, CardColor, CardDeck, CardSymbol, ICard } from "./card";
+import { houseRule } from "../houseRule";
+import { IWaitingRoom } from "../waitingRoom";
+import { Card, CardColor, CardDeck, CardSymbol, ICard } from "../card";
 import { NotFoundError, t } from "elysia";
+import { dealCards, getFirstNonWild, shuffle } from "../../libs/utils";
 import {
-  dealCards,
-  getFirstNonWild,
-  moveFromStack,
-  shuffle,
-} from "../libs/utils";
-
-export interface IPlayer {
-  user: mongoose.Types.ObjectId;
-  hand: mongoose.Types.ObjectId[];
-  announcingLastCard: boolean;
-  accusable: boolean;
-}
+  GameActionServer,
+  GameError,
+  GamePromptType,
+  IGame,
+  IGameMethods,
+  IGamePrompt,
+  IPlayer,
+} from "./types";
 
 const PlayerSchema = new mongoose.Schema<IPlayer>({
   user: {
@@ -39,49 +36,6 @@ const PlayerSchema = new mongoose.Schema<IPlayer>({
   },
 });
 
-export enum GameAction {
-  lastCard = "lastCard",
-  accuse = "accuse",
-  answerPrompt = "answerPrompt",
-  playCard = "playCard",
-  drawCard = "drawCard",
-  viewHand = "viewHand",
-}
-
-export enum GameActionServer {
-  draw = "draw",
-  lastCard = "lastCard",
-  accuse = "accuse",
-  startTurn = "startTurn",
-  error = "error",
-  changeColor = "changeColor",
-  playCard = "playCard",
-  viewHand = "viewHand",
-  endGame = "endGame",
-  requestPrompt = "requestPrompt",
-}
-
-export enum GamePromptType {
-  chooseColor = "chooseColor",
-  stackDrawCard = "stackDrawCard",
-  playDrawnCard = "playDrawnCard",
-}
-
-export enum GameError {
-  notPrompted = "notPrompted",
-  invalidAction = "invalidAction",
-  outOfTurn = "outOfTurn",
-  conditionsNotMet = "conditionsNotMet",
-  waitingForPrompt = "waitingForPrompt",
-  gameFinished = "gameFinished",
-}
-
-export interface IGamePrompt {
-  type: GamePromptType;
-  data?: number;
-  player?: number;
-}
-
 const GamePromptSchema = new mongoose.Schema<IGamePrompt>({
   type: {
     type: String,
@@ -90,51 +44,6 @@ const GamePromptSchema = new mongoose.Schema<IGamePrompt>({
   player: Number,
   data: Number,
 });
-
-export interface IGameMessage {
-  action: GameAction;
-  data?: string | number | boolean;
-}
-
-export interface IGameServerMessage {
-  action: GameActionServer;
-  data?: any;
-  user?: string;
-}
-
-export interface IGame {
-  currentPlayer: number;
-  promptQueue: IGamePrompt[];
-  clockwiseTurns: boolean;
-  forcedColor?: CardColor;
-  notifications: IGameServerMessage[];
-  turnsToSkip: number;
-  houseRules: houseRule[];
-  players: IPlayer[];
-  discardPile: mongoose.Types.ObjectId[];
-  drawPile: mongoose.Types.ObjectId[];
-  winningPlayers: mongoose.Types.ObjectId[];
-  finished: boolean;
-}
-
-interface IGameMethods {
-  announceLastCard(userId: string): Promise<void>;
-  nextPlayerIndex(index: number): number;
-  accusePlayer(accuserId: string, accusedId: string): void;
-  isCardPlayable(cardId: mongoose.Types.ObjectId): Promise<boolean>;
-  playCard(playerIndex: number, index: number): Promise<ICard>;
-  requestPlayCard(userId: string, index: number): Promise<ICard>;
-  canAnnounceLastCard(userId: string): Promise<boolean>;
-  nextTurn(): void;
-  drawCard(playerIndex: number, quantity: number): void;
-  handlePlayerPrompt(
-    userId: string,
-    answer?: string | number | CardColor | boolean,
-  ): Promise<void>;
-  requestCardDraw(userId: string): void;
-  handleCardEffect(cardId: mongoose.Types.ObjectId): Promise<void>;
-  pushNotification(notification: IGameServerMessage): void;
-}
 
 type GameModel = mongoose.Model<IGame, {}, IGameMethods>;
 

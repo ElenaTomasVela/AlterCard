@@ -17,18 +17,7 @@ import {
   waitForSocketMessage,
 } from "./utils";
 import { houseRule } from "../src/models/houseRule";
-import {
-  Game,
-  GameAction,
-  GameActionServer,
-  GameError,
-  GamePromptType,
-  IGame,
-  IGameMessage,
-  IGamePrompt,
-  IGameServerMessage,
-  gameFromWaitingRoom,
-} from "../src/models/game";
+import { Game, gameFromWaitingRoom } from "../src/models/game/schema";
 import { seedCards } from "../src/seeders/seedCards";
 import {
   Card,
@@ -37,6 +26,15 @@ import {
   CardSymbol,
   ICard,
 } from "../src/models/card";
+import {
+  IGame,
+  GameAction,
+  IGameMessage,
+  IGameServerMessage,
+  GameActionServer,
+  GameError,
+  GamePromptType,
+} from "../src/models/game/types";
 
 const api = treaty(app);
 

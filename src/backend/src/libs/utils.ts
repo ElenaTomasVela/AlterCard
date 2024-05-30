@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { IPlayer } from "../models/game";
+import { IPlayer } from "../models/game/schema";
 import { Card, CardColor, ICard } from "../models/card";
 
 export function shuffle<T>(arr: T[]): T[] {
