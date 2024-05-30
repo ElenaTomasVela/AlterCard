@@ -635,12 +635,15 @@ describe("Room", () => {
 describe("Game", () => {
   let token1: string;
   let token2: string;
+  let token3: string;
   let game: mongoose.Document & IGame;
   beforeAll(async () => {
     const { response: response1 } = await api.user.login.post(users[1]);
     const { response: response2 } = await api.user.login.post(users[2]);
+    const { response: response3 } = await api.user.login.post(users[3]);
     token1 = getCookieFromResponse(response1)["authorization"];
     token2 = getCookieFromResponse(response2)["authorization"];
+    token3 = getCookieFromResponse(response3)["authorization"];
   });
   beforeEach(async () => {
     WaitingRoom.deleteMany({});
@@ -651,7 +654,11 @@ describe("Game", () => {
 
     const waitingRoom = new WaitingRoom({
       host: dbUsers[0]._id,
-      users: [{ user: dbUsers[0]._id }, { user: dbUsers[1]._id }],
+      users: [
+        { user: dbUsers[0]._id },
+        { user: dbUsers[1]._id },
+        { user: dbUsers[2]._id },
+      ],
       deck: deck!._id,
     });
     game = await gameFromWaitingRoom(waitingRoom);
@@ -785,8 +792,6 @@ describe("Game", () => {
     expect(gameAfter!.discardPile.length).toBe(game.discardPile.length);
     expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
   });
-
-  test.skip("Invalid action after playing wildcard", async () => {});
 
   test("Draw card", async () => {
     const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
@@ -1059,7 +1064,48 @@ describe("Game", () => {
     expect(gameAfter?.forcedColor).toBe(CardColor.red);
   });
 
-  test.skip("Draw 2 effect", async () => {});
+  test("Invalid action after playing wildcard", async () => {
+    const dbPlayableCard = await Card.findOne({
+      symbol: CardSymbol.changeColor,
+      color: CardColor.wild,
+    });
+    game.players[0].hand.unshift(dbPlayableCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1),
+      await waitForSocketMessage(session1),
+      session1.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: false,
+        } as IGameMessage),
+      );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.invalidAction);
+    expect(gameAfter?.forcedColor).toBeUndefined();
+  });
 
   test("Stack Draw cards", async () => {
     const handCard = {
@@ -1087,6 +1133,75 @@ describe("Game", () => {
       headers: { Cookie: `authorization=${token2}` },
     });
     await waitForSocketConnection(session2);
+    const session3 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token3}` },
+    });
+    await waitForSocketConnection(session3);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 7,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session3);
+    session2.send(
+      JSON.stringify({
+        action: GameAction.answerPrompt,
+        data: game.players[1].hand.length - 1,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session3);
+
+    await waitForSocketMessage(session3);
+    const message = JSON.parse(
+      await waitForSocketMessage(session3),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    const prompt = gameAfter?.promptQueue.slice(-1)[0];
+    expect(message.action).toBe(GameActionServer.requestPrompt);
+    expect(message.data.type).toBe(GamePromptType.stackDrawCard);
+    expect(message.data.player).toBe(2);
+    expect(prompt!.data).toBe(4);
+  });
+
+  test("Answer to draw stack with invalid card", async () => {
+    const handCard = {
+      symbol: CardSymbol.draw2,
+      color: CardColor.red,
+    } as ICard;
+    const unplayableCard = {
+      symbol: CardSymbol.zero,
+      color: CardColor.blue,
+    } as ICard;
+    const discardCard = {
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    } as ICard;
+    const dbHandCard = await Card.findOne(handCard);
+    const dbUnplayableCard = await Card.findOne(unplayableCard);
+    const dbDiscardCard = await Card.findOne(discardCard);
+    game.players[0].hand.push(dbHandCard!._id);
+    game.players[1].hand.push(dbUnplayableCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token1}` },
+    });
+    await waitForSocketConnection(session1);
+    const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token2}` },
+    });
+    await waitForSocketConnection(session2);
+    const session3 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token3}` },
+    });
+    await waitForSocketConnection(session3);
 
     session1.send(
       JSON.stringify({
@@ -1095,22 +1210,21 @@ describe("Game", () => {
       } as IGameMessage),
     );
     await waitForSocketMessage(session2);
+    await waitForSocketMessage(session2);
     session2.send(
       JSON.stringify({
         action: GameAction.answerPrompt,
-        data: game.players[1].hand.length - 1,
+        data: 7,
       } as IGameMessage),
     );
 
-    await waitForSocketMessage(session2);
     const message = JSON.parse(
       await waitForSocketMessage(session2),
     ) as IGameServerMessage;
     const gameAfter = await Game.findById(game._id);
-    const prompt = gameAfter?.promptQueue.slice(-1)[0];
-    expect(message.action).toBe(GameActionServer.requestPrompt);
-    expect(message.data.type).toBe(GamePromptType.stackDrawCard);
-    expect(prompt!.data).toBe(4);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.conditionsNotMet);
+    expect(gameAfter?.players[1].hand.length).toBe(game.players[1].hand.length);
   });
 
   test("Stack Wild Draw cards", async () => {
@@ -1133,6 +1247,11 @@ describe("Game", () => {
       headers: { Cookie: `authorization=${token2}` },
     });
     await waitForSocketConnection(session2);
+    const session3 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
+      // @ts-expect-error
+      headers: { Cookie: `authorization=${token3}` },
+    });
+    await waitForSocketConnection(session3);
 
     session1.send(
       JSON.stringify({
@@ -1140,37 +1259,39 @@ describe("Game", () => {
         data: 7,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session1);
-    await waitForSocketMessage(session1);
+    await waitForSocketMessage(session2);
+    await waitForSocketMessage(session2);
     session2.send(
       JSON.stringify({
         action: GameAction.answerPrompt,
         data: 7,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session1);
-    session1.send(
+    await waitForSocketMessage(session2);
+    await waitForSocketMessage(session2);
+    session3.send(
       JSON.stringify({
         action: GameAction.answerPrompt,
         data: false,
       } as IGameMessage),
     );
+    await waitForSocketMessage(session2);
+    await waitForSocketMessage(session2);
+    session2.send(
+      JSON.stringify({
+        action: GameAction.answerPrompt,
+        data: CardColor.red,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session2);
 
-    const drawMessage = JSON.parse(
-      await waitForSocketMessage(session1),
-    ) as IGameServerMessage;
     const message = JSON.parse(
-      await waitForSocketMessage(session1),
+      await waitForSocketMessage(session2),
     ) as IGameServerMessage;
     const gameAfter = await Game.findById(game._id);
-    const prompt = gameAfter?.promptQueue[0];
-    expect(prompt!.type).toBe(GamePromptType.chooseColor);
-    expect(prompt!.player).toBe(1);
-    expect(drawMessage.action).toBe(GameActionServer.draw);
-    expect(drawMessage.data).toBe(8);
-    expect(message.action).toBe(GameActionServer.requestPrompt);
-    expect(message.data.type).toBe(GamePromptType.chooseColor);
-    expect(message.data.player).toBe(1);
+    expect(message.action).toBe(GameActionServer.changeColor);
+    expect(message.data).toBe(CardColor.red);
+    expect(gameAfter?.currentPlayer).toBe(0);
   });
 
   test("Skip turn effect", async () => {
@@ -1212,10 +1333,9 @@ describe("Game", () => {
     ) as IGameServerMessage;
     const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.startTurn);
-    expect(message.data).toBe(0);
-    expect(gameAfter?.currentPlayer).toBe(0);
+    expect(message.data).toBe(2);
+    expect(gameAfter?.currentPlayer).toBe(2);
   });
-  test.skip("Draw 4 effect", async () => {});
   test("Flip turn order effect", async () => {
     const handCard = {
       symbol: CardSymbol.reverseTurn,
@@ -1458,6 +1578,7 @@ describe("Game", () => {
       color: CardColor.red,
     });
     game.players[0].hand = [dbHandCard!._id];
+    game.winningPlayers.push(game.players[2].user);
     game.discardPile.push(dbDiscardCard!._id);
     await game.save();
 
@@ -1471,7 +1592,6 @@ describe("Game", () => {
       headers: { Cookie: `authorization=${token2}` },
     });
     await waitForSocketConnection(session2);
-
     session1.send(
       JSON.stringify({
         action: GameAction.playCard,
@@ -1484,7 +1604,8 @@ describe("Game", () => {
     ) as IGameServerMessage;
     const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.endGame);
-    expect(message.data[0]).toEqual(users[1].username);
+    expect(message.data[0]).toEqual(users[3].username);
+    expect(message.data[1]).toEqual(users[1].username);
     expect(gameAfter).toBeNull();
   });
 });

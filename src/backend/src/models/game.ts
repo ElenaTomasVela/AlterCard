@@ -205,7 +205,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           counter =
             (counter + orientation + this.players.length) % this.players.length;
           // Skip players that already won
-        } while (this.players[counter].hand.length == 0);
+        } while (this.winningPlayers.includes(this.players[counter].user));
         return counter;
       },
       pushNotification(notification) {
@@ -483,7 +483,9 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
         this.promptQueue.shift();
 
-        const shouldSkipTurn = this.promptQueue.length == 0;
+        const shouldSkipTurn =
+          this.promptQueue.length == 0 ||
+          (this.promptQueue[0].player && prompt.player !== this.currentPlayer);
         if (shouldSkipTurn) {
           this.nextTurn();
         } else {
