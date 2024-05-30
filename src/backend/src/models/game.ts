@@ -471,7 +471,11 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             break;
           case GamePromptType.playDrawnCard:
             const cardId = player.hand[player.hand.length - 1];
-            if ((await this.isCardPlayable(cardId)) && answer) {
+            if (answer == null) throw new Error(GameError.invalidAction);
+
+            if (answer) {
+              if (!(await this.isCardPlayable(cardId)))
+                throw new Error(GameError.conditionsNotMet);
               await this.playCard(playerIndex, player.hand.length - 1);
             }
             break;
