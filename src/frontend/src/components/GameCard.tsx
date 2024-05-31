@@ -55,15 +55,15 @@ export function GameCard({
       case CardSymbol.nine:
         return 9;
       case CardSymbol.draw2:
-        return <Draw2Icon className="fill-current mx-auto" />;
+        return <Draw2Icon className="fill-current mx-auto size-full" />;
       case CardSymbol.draw4:
-        return <Draw4Icon className="mx-auto mt-2" />;
+        return <Draw4Icon className="mx-auto mt-2 size-full" />;
       case CardSymbol.skipTurn:
-        return <SkipTurnIcon className="fill-current mx-auto" />;
+        return <SkipTurnIcon className="fill-current mx-auto size-full" />;
       case CardSymbol.reverseTurn:
-        return <ReverseTurnIcon className="fill-current mx-auto" />;
+        return <ReverseTurnIcon className="fill-current mx-auto size-full" />;
       case CardSymbol.changeColor:
-        return <ChangeColorIcon className="mx-auto" />;
+        return <ChangeColorIcon className="mx-auto size-full" />;
     }
   };
 

@@ -131,7 +131,6 @@ export const Game = () => {
         return {
           ...g,
           players: updatedPlayers,
-          discardPile: g.discardPile.concat(card),
         };
       });
     });
@@ -337,7 +336,11 @@ export const Game = () => {
       {game && !game.finished ? (
         <>
           <div className="flex flex-col gap-4">
-            <H1>{game.players[game.currentPlayer].user.username}'s turn</H1>
+            <H1
+              className={`transition-colors ${game.players[game.currentPlayer].user.username == user && "text-primary-dark"}`}
+            >
+              {game.players[game.currentPlayer].user.username}'s turn
+            </H1>
             <div className="flex flex-wrap gap-10">
               <div>
                 {game.players
@@ -350,7 +353,7 @@ export const Game = () => {
                 {getCurrentPrompt() && (
                   <div
                     className="absolute text-center
-                  w-full h-full bg-white/90 flex flex-col gap-2"
+                  w-full h-full bg-white/90 flex flex-col gap-2 z-10"
                   >
                     {
                       {
@@ -460,14 +463,20 @@ export const Game = () => {
                   <button onClick={drawCard}>
                     <CardBack />
                   </button>
-                  <GameCard
-                    card={game.discardPile[game.discardPile.length - 1]}
-                    className={
-                      game.forcedColor
-                        ? `bg-card-${game.forcedColor?.toLowerCase()}`
-                        : ""
-                    }
-                  />
+                  <div className="relative">
+                    <GameCard
+                      card={game.discardPile[game.discardPile.length - 1]}
+                      key={game.discardPile.length}
+                      className={`absolute animate-in fade-in slide-in-from-right ${
+                        game.forcedColor
+                          ? `bg-card-${game.forcedColor?.toLowerCase()}`
+                          : ""
+                      }`}
+                    />
+                    <GameCard
+                      card={game.discardPile[game.discardPile.length - 2]}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -504,7 +513,8 @@ export const Game = () => {
                         className="shadow-lg
                       group-hover:-translate-y-5 group-hover:rotate-2 
                       transition-[transform]
-                      group-focus:ring-4 ring-primary/50 ring-offset-2"
+                      group-focus:ring-4 ring-primary/50 ring-offset-2
+                        animate-in slide-in-from-top-16 fade-in"
                       />
                     </button>
                   );

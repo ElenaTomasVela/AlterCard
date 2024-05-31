@@ -10,7 +10,7 @@ import { Login } from "./views/Login";
 import { WaitingRoom } from "./views/WaitingRoom";
 import { UserRoute } from "./components/UserRoute";
 import { RoomListing } from "./views/RoomListing";
-import { Game } from "./views/Game.tsx";
+import { Game } from "./views/game/Game.tsx";
 
 const router = createBrowserRouter([
   {
