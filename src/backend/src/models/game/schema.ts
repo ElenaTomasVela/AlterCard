@@ -429,6 +429,8 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             break;
           case CardSymbol.reverseTurn:
             this.clockwiseTurns = !this.clockwiseTurns;
+            if (this.players.length - this.winningPlayers.length == 2)
+              this.turnsToSkip = 1;
             break;
           case CardSymbol.changeColor:
             break;
