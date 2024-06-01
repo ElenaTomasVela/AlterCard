@@ -6,8 +6,8 @@ RUN bun install
 
 COPY . /app
 
-RUN bun run build
+RUN bun run vite build
 
-EXPOSE 5173
+EXPOSE 4173
 
-ENTRYPOINT [ "bun", "run", "preview"]
+ENTRYPOINT [ "bun", "run", "preview", "--host"]
