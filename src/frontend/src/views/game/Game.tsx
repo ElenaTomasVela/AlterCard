@@ -110,30 +110,30 @@ export const Game = () => {
       } as IGameMessage),
     );
 
-    const waitForPlayConfirm = new Promise<void>((resolve) => {
-      const listener = (message: MessageEvent) => {
-        const msgObject: IGameServerMessage = JSON.parse(message.data);
-        if (msgObject.action == GameActionServer.playCard) resolve();
-        socket?.removeEventListener("message", listener);
-      };
-      socket?.addEventListener("message", listener);
-    });
+    // const waitForPlayConfirm = new Promise<void>((resolve) => {
+    //   const listener = (message: MessageEvent) => {
+    //     const msgObject: IGameServerMessage = JSON.parse(message.data);
+    //     if (msgObject.action == GameActionServer.playCard) resolve();
+    //     socket?.removeEventListener("message", listener);
+    //   };
+    //   socket?.addEventListener("message", listener);
+    // });
 
-    waitForPlayConfirm.then(() => {
-      const updatedHand = myHand.slice();
-      updatedHand.splice(index, 1);
-
-      setGame((g) => {
-        if (!g) return;
-        const updatedPlayers = g.players.map((p) =>
-          p.user.username == user ? { ...p, hand: updatedHand } : p,
-        );
-        return {
-          ...g,
-          players: updatedPlayers,
-        };
-      });
-    });
+    // waitForPlayConfirm.then(() => {
+    //   const updatedHand = myHand.slice();
+    //   updatedHand.splice(index, 1);
+    //
+    //   setGame((g) => {
+    //     if (!g) return;
+    //     const updatedPlayers = g.players.map((p) =>
+    //       p.user.username == user ? { ...p, hand: updatedHand } : p,
+    //     );
+    //     return {
+    //       ...g,
+    //       players: updatedPlayers,
+    //     };
+    //   });
+    // });
   };
 
   const answerPrompt = (answer: unknown) => {
@@ -243,24 +243,32 @@ export const Game = () => {
         });
         break;
       case GameActionServer.playCard:
-        setGame((g) => {
-          if (!g) return;
-          if (!(msgObject.data instanceof Object)) return g;
-          const updatedDiscardPile = g.discardPile.concat(
-            msgObject.data as ICard,
+        if (msgObject.user == myPlayer?.user.username)
+          socket?.send(
+            JSON.stringify({
+              action: GameAction.viewHand,
+            } as IGameMessage),
           );
-          const updatedPlayers = g.players.map((p) =>
-            // The current user's hand will be dealt with separately
-            p.user.username != user && p.user._id == msgObject.user
-              ? { ...p, hand: { length: p.hand.length - 1 } }
-              : p,
-          );
-          return {
-            ...g,
-            discardPile: updatedDiscardPile,
-            players: updatedPlayers,
-          };
-        });
+        else
+          setGame((g) => {
+            if (!g) return;
+            if (!(msgObject.data instanceof Object)) return g;
+            const updatedDiscardPile = g.discardPile.concat(
+              msgObject.data as ICard,
+            );
+            const updatedPlayers = g.players.map((p) =>
+              // The current user's hand will be dealt with separately
+              p.user.username != user && p.user._id == msgObject.user
+                ? { ...p, hand: { length: p.hand.length - 1 } }
+                : p,
+            );
+
+            return {
+              ...g,
+              discardPile: updatedDiscardPile,
+              players: updatedPlayers,
+            };
+          });
         break;
       case GameActionServer.viewHand:
         setGame((g) => {
