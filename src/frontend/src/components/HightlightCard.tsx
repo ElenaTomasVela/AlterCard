@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import { ReactNode } from "react";
 import { Card } from "./ui/card";
 
 export default function HightlightCard({

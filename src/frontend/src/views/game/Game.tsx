@@ -1,5 +1,5 @@
 import { GameCard, CardBack } from "@/components/GameCard";
-import { H1, H2, H3 } from "@/components/Headings";
+import { H1, H3 } from "@/components/Headings";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast, useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";
 import {
   CardColor,
@@ -25,7 +25,7 @@ import {
 } from "@/lib/types";
 import { api, waitForSocketConnection } from "@/lib/utils";
 import { Icon } from "@iconify/react/dist/iconify.js";
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 const Player = ({

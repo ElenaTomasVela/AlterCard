@@ -1,20 +1,14 @@
-import { H1, H2, H3 } from "@/components/Headings";
+import { H1, H2 } from "@/components/Headings";
 import { Switch } from "@/components/ui/switch";
-import React, { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
-import {
-  api,
-  waitForSocketConnection,
-  waitForSocketMessage,
-} from "@/lib/utils";
+import { api, waitForSocketConnection } from "@/lib/utils";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   HouseRule,
   HouseRuleDetails,
   IWaitingRoom,
-  IWebsocketMessage,
-  IWebsocketMessageServer,
   ICardDeck,
   IWaitingRoomMessage,
   WaitingRoomAction,
@@ -30,7 +24,6 @@ import { TooltipArrow } from "@radix-ui/react-tooltip";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardTitle } from "@/components/ui/card";
-import HightlightCard from "@/components/HightlightCard";
 import { Label } from "@/components/ui/label";
 
 const Player = ({

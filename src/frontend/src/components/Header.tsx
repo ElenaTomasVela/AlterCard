@@ -1,5 +1,4 @@
 import { NavLink } from "./NavLink";
-import { Link } from "./Link";
 import { Button } from "./ui/button";
 import { useContext } from "react";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";

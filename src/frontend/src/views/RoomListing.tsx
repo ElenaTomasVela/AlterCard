@@ -1,8 +1,8 @@
 import { H1, H2, H3 } from "@/components/Headings";
 import HightlightCard from "@/components/HightlightCard";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { IGame } from "@/lib/types";
 import { api } from "@/lib/utils";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { useEffect, useState } from "react";
@@ -66,7 +66,7 @@ export function RoomListing() {
         <div>
           <H2>Your games in progress</H2>
           <div className="grid gap-6 md:grid-cols-3 pt-5">
-            {games.map((game, index) => (
+            {games.map((game: IGame) => (
               <Link
                 to={`/game/${game._id}`}
                 className="group focus:outline-none"

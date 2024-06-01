@@ -206,6 +206,7 @@ export interface IPlayer {
 }
 
 export interface IGame {
+  _id: string;
   currentPlayer: number;
   promptQueue: IGamePrompt[];
   clockwiseTurns: boolean;
