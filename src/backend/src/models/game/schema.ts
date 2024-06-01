@@ -165,6 +165,17 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         this.drawCard(accusedIndex, 2);
       },
 
+      async isAbleToInterject(cardId) {
+        const card = await Card.findById(cardId);
+        if (!this.houseRules.includes(houseRule.interjections)) return false;
+        if (!card) throw new Error(GameError.invalidAction);
+        if (card.color == CardColor.wild) return false;
+
+        const discardId = this.discardPile[this.discardPile.length - 1];
+        const discard = await Card.findById(discardId);
+
+        return discard!.symbol === card.symbol && discard!.color === card.color;
+      },
       async isCardPlayable(cardId) {
         const card = await Card.findById(cardId);
         if (!card) throw new Error(GameError.invalidAction);
@@ -182,11 +193,16 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         if (this.promptQueue.length > 0)
           throw new Error(GameError.waitingForPrompt);
 
-        const playerIndex = this.players.findIndex((p) =>
-          p.user.equals(new mongoose.Types.ObjectId(userId)),
+        const playerIndex = this.players.findIndex(
+          (p) => p.user.toString() == userId,
         );
-        if (playerIndex !== this.currentPlayer)
+
+        if (
+          playerIndex !== this.currentPlayer &&
+          !this.houseRules.includes(houseRule.interjections)
+        ) {
           throw new Error(GameError.outOfTurn);
+        }
 
         const player = this.players[playerIndex];
 
@@ -194,10 +210,18 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         if (!cardId) {
           throw new Error(GameError.invalidAction);
         }
+
         if (!(await this.isCardPlayable(cardId)))
           throw new Error(GameError.conditionsNotMet);
 
-        const playedCard = await this.playCard(playerIndex, index);
+        if (await this.isAbleToInterject(cardId)) {
+          this.currentPlayer = playerIndex;
+        } else {
+          if (this.currentPlayer != playerIndex)
+            throw new Error(GameError.outOfTurn);
+        }
+
+        await this.playCard(playerIndex, index);
 
         if (
           this.promptQueue.length == 0 ||
@@ -212,7 +236,6 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             user: this.players[newPrompt.player!].user._id.toString(),
           });
         }
-        return playedCard!;
       },
 
       async playCard(playerIndex, index, triggerEffect = true) {
