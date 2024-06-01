@@ -419,6 +419,10 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
               if (!(await this.isCardPlayable(cardId)))
                 throw new Error(GameError.conditionsNotMet);
               await this.playCard(playerIndex, player.hand.length - 1);
+            } else {
+              if (this.houseRules.includes(houseRule.punishmentDraw)) {
+                this.drawCard(playerIndex, 1);
+              }
             }
             break;
         }
@@ -446,18 +450,28 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         if (!card) return;
         switch (card.symbol) {
           case CardSymbol.draw2:
-            this.promptQueue.push({
-              type: GamePromptType.stackDrawCard,
-              data: 2,
-              player: this.nextPlayerIndex(this.currentPlayer),
-            });
+            if (this.houseRules.includes(houseRule.stackDraw))
+              this.promptQueue.push({
+                type: GamePromptType.stackDrawCard,
+                data: 2,
+                player: this.nextPlayerIndex(this.currentPlayer),
+              });
+            else {
+              this.drawCard(this.nextPlayerIndex(this.currentPlayer), 2);
+              this.turnsToSkip = 1;
+            }
             break;
           case CardSymbol.draw4:
-            this.promptQueue.push({
-              type: GamePromptType.stackDrawCard,
-              data: 4,
-              player: this.nextPlayerIndex(this.currentPlayer),
-            });
+            if (this.houseRules.includes(houseRule.stackDraw))
+              this.promptQueue.push({
+                type: GamePromptType.stackDrawCard,
+                data: 4,
+                player: this.nextPlayerIndex(this.currentPlayer),
+              });
+            else {
+              this.drawCard(this.nextPlayerIndex(this.currentPlayer), 4);
+              this.turnsToSkip = 1;
+            }
             break;
           case CardSymbol.skipTurn:
             this.turnsToSkip = 1;
