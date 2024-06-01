@@ -307,7 +307,9 @@ export const Game = () => {
   useEffect(() => {
     const connect = async () => {
       const fetchedGame = (await api.get("/game/" + gameId)).data;
-      setGame(fetchedGame);
+      setGame(() => {
+        return fetchedGame;
+      });
 
       const webSocket = new WebSocket(
         `${import.meta.env.VITE_BACKEND_WS_URL}/game/${gameId}/ws`,
@@ -473,9 +475,11 @@ export const Game = () => {
                           : ""
                       }`}
                     />
-                    <GameCard
-                      card={game.discardPile[game.discardPile.length - 2]}
-                    />
+                    {game.discardPile.length > 1 && (
+                      <GameCard
+                        card={game.discardPile[game.discardPile.length - 2]}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
