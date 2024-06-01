@@ -199,7 +199,10 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
         const playedCard = await this.playCard(playerIndex, index);
 
-        if (this.promptQueue.length == 0) {
+        if (
+          this.promptQueue.length == 0 ||
+          this.promptQueue[0].player !== this.currentPlayer
+        ) {
           this.nextTurn();
         } else {
           const newPrompt = this.promptQueue[0];
@@ -212,7 +215,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         return playedCard!;
       },
 
-      async playCard(playerIndex, index) {
+      async playCard(playerIndex, index, triggerEffect = true) {
         const player = this.players[playerIndex];
 
         const card = player.hand.splice(index, 1)[0];
@@ -224,7 +227,9 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           data: dbCard,
           user: player.user.toString(),
         });
-        await this.handleCardEffect(card);
+
+        if (triggerEffect) await this.handleCardEffect(card);
+
         if (this.forcedColor) {
           this.forcedColor = undefined;
           this.pushNotification({ action: GameActionServer.changeColor });
@@ -359,7 +364,12 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
               const cardId = this.players[prompt.player].hand[answer];
               if (!(await this.isCardPlayable(cardId)))
                 throw new Error(GameError.conditionsNotMet);
+
               const card = await Card.findById(cardId);
+
+              // Play card without triggering effect
+              await this.playCard(prompt.player, answer, false);
+
               const cardsToDraw =
                 card!.symbol == CardSymbol.draw2 ? 2 : CardSymbol.draw4 ? 4 : 0;
               // Replace prompt with new prompt for next player
@@ -393,17 +403,19 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         this.promptQueue.shift();
 
         const shouldSkipTurn =
-          this.promptQueue.length == 0 ||
-          (this.promptQueue[0].player && prompt.player !== this.currentPlayer);
+          (this.promptQueue.length == 0 ||
+            this.promptQueue[0].player !== this.currentPlayer) &&
+          prompt.player === this.currentPlayer;
         if (shouldSkipTurn) {
           this.nextTurn();
         } else {
           const newPrompt = this.promptQueue[0];
-          this.pushNotification({
-            action: GameActionServer.requestPrompt,
-            data: newPrompt,
-            user: this.players[newPrompt.player!].user._id.toString(),
-          });
+          if (newPrompt)
+            this.pushNotification({
+              action: GameActionServer.requestPrompt,
+              data: newPrompt,
+              user: this.players[newPrompt.player!].user._id.toString(),
+            });
         }
       },
       async handleCardEffect(cardId) {

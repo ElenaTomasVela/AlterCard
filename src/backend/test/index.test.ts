@@ -13,6 +13,7 @@ import {
 } from "../src/models/waitingRoom";
 import {
   getCookieFromResponse,
+  waitForGameAction,
   waitForSocketConnection,
   waitForSocketMessage,
 } from "./utils";
@@ -1143,25 +1144,28 @@ describe("Game", () => {
         data: 7,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session3);
+    await waitForGameAction(session3, GameActionServer.requestPrompt);
     session2.send(
       JSON.stringify({
         action: GameAction.answerPrompt,
         data: game.players[1].hand.length - 1,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session3);
+    await waitForGameAction(session3, GameActionServer.requestPrompt);
+    session3.send(
+      JSON.stringify({
+        action: GameAction.answerPrompt,
+        data: false,
+      } as IGameMessage),
+    );
 
-    await waitForSocketMessage(session3);
     const message = JSON.parse(
       await waitForSocketMessage(session3),
     ) as IGameServerMessage;
     const gameAfter = await Game.findById(game._id);
-    const prompt = gameAfter?.promptQueue.slice(-1)[0];
-    expect(message.action).toBe(GameActionServer.requestPrompt);
-    expect(message.data.type).toBe(GamePromptType.stackDrawCard);
-    expect(message.data.player).toBe(2);
-    expect(prompt!.data).toBe(4);
+    expect(message.action).toBe(GameActionServer.draw);
+    expect(message.data).toBe(4);
+    expect(gameAfter?.currentPlayer).toBe(0);
   });
 
   test("Answer to draw stack with invalid card", async () => {
@@ -1207,6 +1211,7 @@ describe("Game", () => {
         data: 7,
       } as IGameMessage),
     );
+    await waitForSocketMessage(session2);
     await waitForSocketMessage(session2);
     await waitForSocketMessage(session2);
     session2.send(
@@ -1257,31 +1262,27 @@ describe("Game", () => {
         data: 7,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session2);
-    await waitForSocketMessage(session2);
+    await waitForGameAction(session2, GameActionServer.requestPrompt);
     session2.send(
       JSON.stringify({
         action: GameAction.answerPrompt,
         data: 7,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session2);
-    await waitForSocketMessage(session2);
+    await waitForGameAction(session2, GameActionServer.requestPrompt);
     session3.send(
       JSON.stringify({
         action: GameAction.answerPrompt,
         data: false,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session2);
-    await waitForSocketMessage(session2);
+    await waitForGameAction(session2, GameActionServer.requestPrompt);
     session2.send(
       JSON.stringify({
         action: GameAction.answerPrompt,
         data: CardColor.red,
       } as IGameMessage),
     );
-    await waitForSocketMessage(session2);
 
     const message = JSON.parse(
       await waitForSocketMessage(session2),

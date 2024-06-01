@@ -72,7 +72,11 @@ export interface IGameMethods {
   nextPlayerIndex(index: number): number;
   accusePlayer(accuserId: string, accusedId: string): void;
   isCardPlayable(cardId: mongoose.Types.ObjectId): Promise<boolean>;
-  playCard(playerIndex: number, index: number): Promise<ICard>;
+  playCard(
+    playerIndex: number,
+    index: number,
+    triggerEffect?: boolean,
+  ): Promise<ICard>;
   requestPlayCard(userId: string, index: number): Promise<ICard>;
   canAnnounceLastCard(userId: string): Promise<boolean>;
   nextTurn(): void;

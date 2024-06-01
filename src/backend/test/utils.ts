@@ -1,3 +1,5 @@
+import { GameActionServer, IGameServerMessage } from "../src/models/game/types";
+
 export const waitForSocketConnection = (socket: WebSocket) => {
   return new Promise<void>((resolve, reject) => {
     if (socket.readyState !== WebSocket.OPEN) {
@@ -15,6 +17,22 @@ export const waitForSocketMessage = (socket: WebSocket) => {
     socket.addEventListener("message", (event) => resolve(event.data), {
       once: true,
     });
+  });
+};
+
+export const waitForGameAction = (
+  socket: WebSocket,
+  action: GameActionServer,
+) => {
+  return new Promise<IGameServerMessage>((resolve) => {
+    const listener = (event: MessageEvent) => {
+      const message = JSON.parse(event.data) as IGameServerMessage;
+      if (message.action == action) {
+        socket.removeEventListener("message", listener);
+        resolve(message);
+      }
+    };
+    socket.addEventListener("message", listener);
   });
 };
 
