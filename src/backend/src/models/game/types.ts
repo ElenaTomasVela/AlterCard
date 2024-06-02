@@ -64,7 +64,7 @@ export interface IGame {
   players: IPlayer[];
   discardPile: mongoose.Types.ObjectId[];
   drawPile: mongoose.Types.ObjectId[];
-  winningPlayers: mongoose.Types.ObjectId[];
+  eliminatedPlayers: mongoose.Types.ObjectId[];
   finished: boolean;
 }
 

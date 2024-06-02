@@ -25,7 +25,11 @@ import {
   waitForSocketMessage,
 } from "./utils";
 import { token1, token2, token3, users } from "./setup";
-import { HouseRule, StackDrawHouseRule } from "../src/models/houseRule";
+import {
+  DrawHouseRule,
+  HouseRule,
+  StackDrawHouseRule,
+} from "../src/models/houseRule";
 
 let game: mongoose.Document & IGame;
 
@@ -1022,6 +1026,108 @@ describe("House rules", async () => {
       expect(gameAfter?.currentPlayer).toBe(2);
     });
   });
+  describe("Draw card", () => {
+    test("House rule not enabled", async () => {
+      session1.send(
+        JSON.stringify({
+          action: GameAction.drawCard,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session1);
+      await waitForSocketMessage(session1);
+      session1.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: false,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.startTurn);
+      expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 1);
+      expect(gameAfter!.players[0].hand.length).toBe(
+        game.players[0].hand.length + 1,
+      );
+    });
+    test("Punishment draw", async () => {
+      game.houseRules.draw = DrawHouseRule.punishmentDraw;
+      await game.save();
+      session1.send(
+        JSON.stringify({
+          action: GameAction.drawCard,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session1);
+      await waitForSocketMessage(session1);
+      session1.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: false,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.draw);
+      expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 2);
+      expect(gameAfter!.players[0].hand.length).toBe(
+        game.players[0].hand.length + 2,
+      );
+    });
+    test("Draw until playable", async () => {
+      const discardCard: ICard = {
+        symbol: CardSymbol.one,
+        color: CardColor.red,
+      };
+      const playableCard: ICard = {
+        symbol: CardSymbol.changeColor,
+        color: CardColor.wild,
+      };
+      const dbDiscardCard = await Card.findOne(discardCard);
+      const dbPlayableCard = await Card.findOne(playableCard);
+      game.discardPile.push(dbDiscardCard!._id);
+      game.drawPile.push(dbPlayableCard!._id, dbPlayableCard!._id);
+      game.houseRules.draw = DrawHouseRule.drawUntilPlay;
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.drawCard,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session1);
+      await waitForSocketMessage(session1);
+      session1.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: false,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session1);
+      await waitForSocketMessage(session1);
+      session1.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: true,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.playCard);
+      expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 2);
+      expect(gameAfter!.players[0].hand.length).toBe(
+        game.players[0].hand.length + 1,
+      );
+    });
+  });
 });
 
 test("End game", async () => {
@@ -1034,7 +1140,7 @@ test("End game", async () => {
     color: CardColor.red,
   });
   game.players[0].hand = [dbHandCard!._id];
-  game.winningPlayers.push(game.players[2].user);
+  game.eliminatedPlayers.push(game.players[2].user);
   game.discardPile.push(dbDiscardCard!._id);
   await game.save();
 

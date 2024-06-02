@@ -93,7 +93,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         default: [],
       },
     ],
-    winningPlayers: [
+    eliminatedPlayers: [
       { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
     ],
     finished: {
@@ -110,7 +110,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           counter =
             (counter + orientation + this.players.length) % this.players.length;
           // Skip players that already won
-        } while (this.winningPlayers.includes(this.players[counter].user));
+        } while (this.eliminatedPlayers.includes(this.players[counter].user));
         return counter;
       },
       pushNotification(notification) {
@@ -255,7 +255,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           this.pushNotification({ action: GameActionServer.changeColor });
         }
 
-        if (player.hand.length == 0) this.winningPlayers.push(player.user);
+        if (player.hand.length == 0) this.eliminatedPlayers.push(player.user);
 
         return dbCard!;
       },
@@ -344,9 +344,9 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         }
 
         // Finish game
-        if (this.winningPlayers.length == this.players.length - 1) {
+        if (this.eliminatedPlayers.length == this.players.length - 1) {
           this.finished = true;
-          this.winningPlayers.push(this.players[this.currentPlayer].user);
+          this.eliminatedPlayers.push(this.players[this.currentPlayer].user);
         }
       },
 
@@ -516,7 +516,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             break;
           case CardSymbol.reverseTurn:
             this.clockwiseTurns = !this.clockwiseTurns;
-            if (this.players.length - this.winningPlayers.length == 2)
+            if (this.players.length - this.eliminatedPlayers.length == 2)
               this.turnsToSkip = 1;
             break;
           case CardSymbol.changeColor:

@@ -567,10 +567,10 @@ export const app = new Elysia()
             if (game?.finished) {
               const winningPlayers = await User.aggregate()
                 .match({
-                  _id: { $in: game.winningPlayers },
+                  _id: { $in: game.eliminatedPlayers },
                 })
                 .addFields({
-                  order: { $indexOfArray: [game.winningPlayers, "$_id"] },
+                  order: { $indexOfArray: [game.eliminatedPlayers, "$_id"] },
                 })
                 .sort({ order: 1 })
                 .project({ username: 1 });
