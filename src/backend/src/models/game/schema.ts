@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
-import { DrawHouseRule, HouseRule, HouseRuleConfigSchema } from "../houseRule";
+import {
+  DrawHouseRule,
+  HouseRule,
+  HouseRuleConfigSchema,
+  StackDrawHouseRule,
+} from "../houseRule";
 import { IWaitingRoom } from "../waitingRoom";
 import { Card, CardColor, CardDeck, CardSymbol, ICard } from "../card";
 import { NotFoundError, t } from "elysia";
@@ -204,7 +209,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         }
 
         if (!(await this.isCardPlayable(cardId)))
-          throw new Error(GameError.conditionsNotMet);
+          throw new Error(GameError.unplayableCard);
 
         if (await this.isAbleToInterject(cardId)) {
           this.currentPlayer = playerIndex;
@@ -373,14 +378,38 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             });
             break;
           case GamePromptType.stackDrawCard:
-            if (answer == null || typeof answer !== "number") {
+            if (
+              answer == null ||
+              typeof answer !== "number" ||
+              this.houseRules.drawCardStacking == null
+            ) {
               this.drawCard(prompt.player, prompt.data!);
             } else {
               const cardId = this.players[prompt.player].hand[answer];
-              if (!(await this.isCardPlayable(cardId)))
-                throw new Error(GameError.conditionsNotMet);
-
               const card = await Card.findById(cardId);
+
+              if (
+                card?.symbol !== CardSymbol.draw2 &&
+                card?.symbol !== CardSymbol.draw4
+              )
+                throw new Error(GameError.unplayableCard);
+
+              const discardCard = await Card.findById(
+                this.discardPile.slice(-1)[0],
+              );
+              switch (this.houseRules.drawCardStacking) {
+                case StackDrawHouseRule.flat:
+                  if (discardCard?.symbol != card.symbol)
+                    throw new Error(GameError.unplayableCard);
+                  break;
+                case StackDrawHouseRule.progressive:
+                  if (
+                    discardCard?.symbol === CardSymbol.draw4 &&
+                    card.symbol === CardSymbol.draw2
+                  )
+                    throw new Error(GameError.unplayableCard);
+                  break;
+              }
 
               // Play card without triggering effect
               await this.playCard(prompt.player, answer, false);
@@ -394,11 +423,17 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
                 player: this.nextPlayerIndex(prompt.player),
               });
 
-              const chooseColorPrompt = this.promptQueue.find(
-                (p) => p.type == GamePromptType.chooseColor,
-              );
-              if (chooseColorPrompt) {
-                chooseColorPrompt.player = prompt.player;
+              if (card.color === CardColor.wild) {
+                const chooseColorPrompt = this.promptQueue.find(
+                  (p) => p.type == GamePromptType.chooseColor,
+                );
+                if (chooseColorPrompt) {
+                  chooseColorPrompt.player = prompt.player;
+                }
+              } else {
+                this.promptQueue = this.promptQueue.filter(
+                  (p) => p.type !== GamePromptType.chooseColor,
+                );
               }
             }
             break;
@@ -410,7 +445,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
             if (answer) {
               if (!(await this.isCardPlayable(cardId)))
-                throw new Error(GameError.conditionsNotMet);
+                throw new Error(GameError.unplayableCard);
               await this.playCard(playerIndex, player.hand.length - 1);
             } else {
               if (this.houseRules.draw)

@@ -44,6 +44,7 @@ export enum GameError {
   conditionsNotMet = "conditionsNotMet",
   waitingForPrompt = "waitingForPrompt",
   gameFinished = "gameFinished",
+  unplayableCard = "unplayableCard",
 }
 
 export interface IGamePrompt {

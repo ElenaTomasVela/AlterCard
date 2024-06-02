@@ -132,7 +132,7 @@ describe("Play card", () => {
     ) as IGameServerMessage;
     const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.error);
-    expect(message.data).toBe(GameError.conditionsNotMet);
+    expect(message.data).toBe(GameError.unplayableCard);
     expect(gameAfter!.discardPile.length).toBe(game.discardPile.length);
     expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
   });
@@ -344,7 +344,7 @@ describe("Prompts", () => {
       ) as IGameServerMessage;
       const gameAfter = await Game.findById(game._id);
       expect(message.action).toBe(GameActionServer.error);
-      expect(message.data).toBe(GameError.conditionsNotMet);
+      expect(message.data).toBe(GameError.unplayableCard);
       expect(gameAfter!.drawPile.length).toBe(game.drawPile.length - 1);
       expect(gameAfter!.discardPile.length).toBe(game.discardPile.length);
       expect(gameAfter!.players[0].hand.length).toBe(
@@ -509,13 +509,13 @@ describe("Prompts", () => {
       ) as IGameServerMessage;
       const gameAfter = await Game.findById(game._id);
       expect(message.action).toBe(GameActionServer.error);
-      expect(message.data).toBe(GameError.conditionsNotMet);
+      expect(message.data).toBe(GameError.unplayableCard);
       expect(gameAfter?.players[1].hand.length).toBe(
         game.players[1].hand.length,
       );
     });
 
-    test("Wild Draw cards", async () => {
+    test("Color change prompt transfer", async () => {
       const handCard = {
         symbol: CardSymbol.draw4,
         color: CardColor.wild,
@@ -562,21 +562,20 @@ describe("Prompts", () => {
       expect(message.data).toBe(CardColor.red);
       expect(gameAfter?.currentPlayer).toBe(0);
     });
-
-    test("House rule not enabled", async () => {
-      const handCard = {
+    test("Color change negation", async () => {
+      const draw4 = {
+        symbol: CardSymbol.draw4,
+        color: CardColor.wild,
+      } as ICard;
+      const draw2 = {
         symbol: CardSymbol.draw2,
         color: CardColor.red,
-      } as ICard;
-      const discardCard = {
-        symbol: CardSymbol.one,
-        color: CardColor.red,
-      } as ICard;
-      const dbHandCard = await Card.findOne(handCard);
-      const dbDiscardCard = await Card.findOne(discardCard);
-      game.players[0].hand.push(dbHandCard!._id);
-      game.players[1].hand.push(dbHandCard!._id);
-      game.discardPile.push(dbDiscardCard!._id);
+      };
+      const dbDraw4 = await Card.findOne(draw4);
+      const dbDraw2 = await Card.findOne(draw2);
+      game.players[0].hand.push(dbDraw4!._id);
+      game.players[1].hand.push(dbDraw2!._id);
+      game.houseRules.drawCardStacking = StackDrawHouseRule.all;
       await game.save();
 
       session1.send(
@@ -585,20 +584,35 @@ describe("Prompts", () => {
           data: 7,
         } as IGameMessage),
       );
+      await waitForGameAction(session2, GameActionServer.requestPrompt);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForGameAction(session2, GameActionServer.requestPrompt);
+      session3.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: false,
+        } as IGameMessage),
+      );
       await waitForGameAction(session2, GameActionServer.startTurn);
       session2.send(
         JSON.stringify({
           action: GameAction.answerPrompt,
-          data: game.players[1].hand.length - 1,
+          data: CardColor.red,
         } as IGameMessage),
       );
+
       const message = JSON.parse(
         await waitForSocketMessage(session2),
       ) as IGameServerMessage;
       const gameAfter = await Game.findById(game._id);
       expect(message.action).toBe(GameActionServer.error);
       expect(message.data).toBe(GameError.notPrompted);
-      expect(gameAfter?.currentPlayer).toBe(2);
+      expect(gameAfter?.currentPlayer).toBe(0);
     });
   });
 });
@@ -868,11 +882,144 @@ describe("House rules", async () => {
       ) as IGameServerMessage;
       const gameAfter = await Game.findById(game._id);
       expect(message.action).toBe(GameActionServer.error);
-      expect(message.data).toBe(GameError.conditionsNotMet);
+      expect(message.data).toBe(GameError.unplayableCard);
       expect(gameAfter!.discardPile.length).toBe(game.discardPile.length);
       expect(gameAfter!.players[1].hand.length).toBe(
         game.players[1].hand.length,
       );
+    });
+  });
+
+  describe("Stack Draw cards", () => {
+    test("Progressive stacking", async () => {
+      const draw2Card = {
+        symbol: CardSymbol.draw2,
+        color: CardColor.red,
+      } as ICard;
+      const draw4Card = {
+        symbol: CardSymbol.draw4,
+        color: CardColor.wild,
+      } as ICard;
+      const discardCard = {
+        symbol: CardSymbol.one,
+        color: CardColor.red,
+      } as ICard;
+      const dbDraw2 = await Card.findOne(draw2Card);
+      const dbDraw4 = await Card.findOne(draw4Card);
+      const dbDiscardCard = await Card.findOne(discardCard);
+      game.players[0].hand.push(dbDraw4!._id);
+      game.players[1].hand.push(dbDraw2!._id);
+      game.houseRules.drawCardStacking = StackDrawHouseRule.progressive;
+      game.discardPile.push(dbDiscardCard!._id);
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForGameAction(session2, GameActionServer.requestPrompt);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: game.players[1].hand.length - 1,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.error);
+      expect(message.data).toBe(GameError.unplayableCard);
+      expect(gameAfter!.players[1].hand.length).toBe(
+        game?.players[1].hand.length,
+      );
+    });
+    test("Flat stacking", async () => {
+      const draw2Card = {
+        symbol: CardSymbol.draw2,
+        color: CardColor.red,
+      } as ICard;
+      const draw4Card = {
+        symbol: CardSymbol.draw4,
+        color: CardColor.wild,
+      } as ICard;
+      const discardCard = {
+        symbol: CardSymbol.one,
+        color: CardColor.red,
+      } as ICard;
+      const dbDraw2 = await Card.findOne(draw4Card);
+      const dbDraw4 = await Card.findOne(draw2Card);
+      const dbDiscardCard = await Card.findOne(discardCard);
+      game.players[0].hand.push(dbDraw4!._id);
+      game.players[1].hand.push(dbDraw2!._id);
+      game.houseRules.drawCardStacking = StackDrawHouseRule.flat;
+      game.discardPile.push(dbDiscardCard!._id);
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForGameAction(session2, GameActionServer.requestPrompt);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: game.players[1].hand.length - 1,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.error);
+      expect(message.data).toBe(GameError.unplayableCard);
+      expect(gameAfter!.players[1].hand.length).toBe(
+        game?.players[1].hand.length,
+      );
+    });
+
+    test("House rule not enabled", async () => {
+      const handCard = {
+        symbol: CardSymbol.draw2,
+        color: CardColor.red,
+      } as ICard;
+      const discardCard = {
+        symbol: CardSymbol.one,
+        color: CardColor.red,
+      } as ICard;
+      const dbHandCard = await Card.findOne(handCard);
+      const dbDiscardCard = await Card.findOne(discardCard);
+      game.players[0].hand.push(dbHandCard!._id);
+      game.players[1].hand.push(dbHandCard!._id);
+      game.discardPile.push(dbDiscardCard!._id);
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForGameAction(session2, GameActionServer.startTurn);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: game.players[1].hand.length - 1,
+        } as IGameMessage),
+      );
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.error);
+      expect(message.data).toBe(GameError.notPrompted);
+      expect(gameAfter?.currentPlayer).toBe(2);
     });
   });
 });
