@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { CardColor, ICard } from "../card";
-import { houseRule } from "../houseRule";
+import { HouseRule, IHouseRuleConfig } from "../houseRule";
 
 export interface IPlayer {
   user: mongoose.Types.ObjectId;
@@ -59,7 +59,7 @@ export interface IGame {
   forcedColor?: CardColor;
   notifications: IGameServerMessage[];
   turnsToSkip: number;
-  houseRules: houseRule[];
+  houseRules: IHouseRuleConfig;
   players: IPlayer[];
   discardPile: mongoose.Types.ObjectId[];
   drawPile: mongoose.Types.ObjectId[];

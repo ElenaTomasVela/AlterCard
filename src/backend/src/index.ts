@@ -27,7 +27,7 @@ import {
   IGame,
   IGameServerMessage,
 } from "./models/game/types";
-import { houseRule } from "./models/houseRule";
+import { HouseRule, tHouseRuleConfig } from "./models/houseRule";
 import { Card, CardColor, CardDeck, ICard } from "./models/card";
 import mongoose from "mongoose";
 import { gameFromWaitingRoom, Game } from "./models/game/schema";
@@ -283,6 +283,33 @@ export const app = new Elysia()
                 );
                 break;
 
+              case WaitingRoomAction.setRule:
+                if (waitingRoom!.host.toString() !== ws.data.user.id) {
+                  throw new Error(
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.error,
+                      data: WaitingRoomError.notTheHost,
+                    }),
+                  );
+                }
+                if (!message.data || typeof message.data !== "object")
+                  throw new ValidationError(
+                    "message.data",
+                    tHouseRuleConfig,
+                    message.data,
+                  );
+                Object.assign(waitingRoom?.houseRules!, message.data);
+                await waitingRoom?.save();
+
+                ws.publish(
+                  ws.data.params.id,
+                  JSON.stringify(<IWaitingRoomServerMessage>{
+                    action: WaitingRoomServerAction.setRule,
+                    data: message.data,
+                  }),
+                );
+                break;
+
               case "addRule":
                 if (waitingRoom!.host.toString() !== ws.data.user.id) {
                   throw new Error(
@@ -295,15 +322,22 @@ export const app = new Elysia()
                 if (
                   !message.data ||
                   typeof message.data !== "string" ||
-                  !(Object.values(houseRule) as string[]).includes(message.data)
+                  !(Object.values(HouseRule) as string[]).includes(message.data)
                 )
                   throw new ValidationError(
                     "message.data",
-                    t.Enum(houseRule),
+                    t.Enum(HouseRule),
                     message.data,
                   );
-                if (!waitingRoom!.houseRules.includes(message.data)) {
-                  waitingRoom!.houseRules.push(message.data);
+                message.data;
+                if (
+                  !waitingRoom!.houseRules.generalRules.includes(
+                    message.data as HouseRule,
+                  )
+                ) {
+                  waitingRoom!.houseRules.generalRules.push(
+                    message.data as HouseRule,
+                  );
                   await waitingRoom!.save();
 
                   ws.publish(
@@ -328,15 +362,19 @@ export const app = new Elysia()
                 if (
                   !message.data ||
                   typeof message.data !== "string" ||
-                  !(Object.values(houseRule) as string[]).includes(message.data)
+                  !(Object.values(HouseRule) as string[]).includes(message.data)
                 )
                   throw new ValidationError(
                     "message.data",
-                    t.Enum(houseRule),
+                    t.Enum(HouseRule),
                     message.data,
                   );
 
-                if (waitingRoom!.houseRules.includes(message.data)) {
+                if (
+                  waitingRoom!.houseRules.generalRules.includes(
+                    message.data as HouseRule,
+                  )
+                ) {
                   await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
                     $pull: { houseRules: message.data },
                   });
@@ -366,7 +404,7 @@ export const app = new Elysia()
                   { $set: { "users.$.ready": message.data } },
                 );
 
-                ws.publish(
+                serverInstance?.publish(
                   ws.data.params.id,
                   JSON.stringify(<IWaitingRoomServerMessage>{
                     action: WaitingRoomServerAction.ready,

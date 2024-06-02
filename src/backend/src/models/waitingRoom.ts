@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
-import { houseRule } from "./houseRule";
-import { IPopulatedUser } from "./user";
+import {
+  HouseRuleConfigSchema,
+  IHouseRuleConfig,
+  tHouseRuleConfig,
+} from "./houseRule";
 import { t } from "elysia";
 
 export interface IWaitingRoom {
@@ -9,7 +12,7 @@ export interface IWaitingRoom {
     user: mongoose.Types.ObjectId;
     ready: boolean;
   }[];
-  houseRules: string[];
+  houseRules: IHouseRuleConfig;
   deck: mongoose.Types.ObjectId;
 }
 
@@ -19,6 +22,7 @@ export enum WaitingRoomAction {
   removeRule = "removeRule",
   ready = "ready",
   setDeck = "setDeck",
+  setRule = "setRule",
 }
 
 export enum WaitingRoomServerAction {
@@ -31,6 +35,7 @@ export enum WaitingRoomServerAction {
   newHost = "newHost",
   error = "error",
   setDeck = "setDeck",
+  setRule = "setRule",
 }
 
 export enum WaitingRoomError {
@@ -42,18 +47,18 @@ export enum WaitingRoomError {
 
 export interface IWaitingRoomMessage {
   action: WaitingRoomAction;
-  data?: string | boolean;
+  data?: string | boolean | IHouseRuleConfig;
 }
 
 export interface IWaitingRoomServerMessage {
   action: WaitingRoomServerAction;
-  data?: string | boolean;
+  data?: string | boolean | IHouseRuleConfig;
   user?: string;
 }
 
 export const tWaitingRoomMessage = t.Object({
   action: t.Enum(WaitingRoomAction),
-  data: t.Optional(t.Union([t.String(), t.Boolean()])),
+  data: t.Optional(t.Union([t.String(), t.Boolean(), tHouseRuleConfig])),
   player: t.Optional(t.String()),
 });
 
@@ -72,13 +77,10 @@ const WaitingRoomSchema = new mongoose.Schema<IWaitingRoom>({
     },
   ],
   houseRules: {
-    type: [String],
-    enum: Object.values(houseRule),
-    validate: {
-      validator: (arr: string[]) => new Set(arr).size == arr.length,
+    type: HouseRuleConfigSchema,
+    default: {
+      generalRules: [],
     },
-    message: (props: mongoose.ValidatorProps) =>
-      `${props.value} has duplicate values`,
   },
   deck: {
     type: mongoose.Schema.Types.ObjectId,

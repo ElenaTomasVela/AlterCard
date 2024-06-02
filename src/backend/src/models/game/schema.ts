@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { houseRule } from "../houseRule";
+import { DrawHouseRule, HouseRule, HouseRuleConfigSchema } from "../houseRule";
 import { IWaitingRoom } from "../waitingRoom";
 import { Card, CardColor, CardDeck, CardSymbol, ICard } from "../card";
 import { NotFoundError, t } from "elysia";
@@ -61,16 +61,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
       type: Boolean,
       default: true,
     },
-    houseRules: {
-      type: [String],
-      default: [],
-      enum: Object.values(houseRule),
-      validate: {
-        validator: (arr: string[]) => new Set(arr).size == arr.length,
-      },
-      message: (props: mongoose.ValidatorProps) =>
-        `${props.value} has duplicate values`,
-    },
+    houseRules: HouseRuleConfigSchema,
     forcedColor: {
       type: String,
       enum: Object.values(CardColor),
@@ -167,7 +158,8 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
       async isAbleToInterject(cardId) {
         const card = await Card.findById(cardId);
-        if (!this.houseRules.includes(houseRule.interjections)) return false;
+        if (!this.houseRules.generalRules.includes(HouseRule.interjections))
+          return false;
         if (!card) throw new Error(GameError.invalidAction);
         if (card.color == CardColor.wild) return false;
 
@@ -199,7 +191,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
 
         if (
           playerIndex !== this.currentPlayer &&
-          !this.houseRules.includes(houseRule.interjections)
+          !this.houseRules.generalRules.includes(HouseRule.interjections)
         ) {
           throw new Error(GameError.outOfTurn);
         }
@@ -409,20 +401,31 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
                 chooseColorPrompt.player = prompt.player;
               }
             }
-
             break;
+
           case GamePromptType.playDrawnCard:
             const cardId = player.hand[player.hand.length - 1];
-            if (answer == null) throw new Error(GameError.invalidAction);
+            if (answer == null || typeof answer !== "boolean")
+              throw new Error(GameError.invalidAction);
 
             if (answer) {
               if (!(await this.isCardPlayable(cardId)))
                 throw new Error(GameError.conditionsNotMet);
               await this.playCard(playerIndex, player.hand.length - 1);
             } else {
-              if (this.houseRules.includes(houseRule.punishmentDraw)) {
-                this.drawCard(playerIndex, 1);
-              }
+              if (this.houseRules.draw)
+                switch (this.houseRules.draw) {
+                  case DrawHouseRule.punishmentDraw:
+                    this.drawCard(playerIndex, 1);
+                    break;
+                  case DrawHouseRule.drawUntilPlay:
+                    this.drawCard(playerIndex, 1);
+                    this.promptQueue.push({
+                      type: GamePromptType.playDrawnCard,
+                      player: playerIndex,
+                    });
+                    break;
+                }
             }
             break;
         }
@@ -450,7 +453,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         if (!card) return;
         switch (card.symbol) {
           case CardSymbol.draw2:
-            if (this.houseRules.includes(houseRule.stackDraw))
+            if (this.houseRules.drawCardStacking != null)
               this.promptQueue.push({
                 type: GamePromptType.stackDrawCard,
                 data: 2,
@@ -462,7 +465,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             }
             break;
           case CardSymbol.draw4:
-            if (this.houseRules.includes(houseRule.stackDraw))
+            if (this.houseRules.drawCardStacking != null)
               this.promptQueue.push({
                 type: GamePromptType.stackDrawCard,
                 data: 4,
