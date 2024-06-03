@@ -42,6 +42,8 @@ export const HouseRuleConfigSchema = new mongoose.Schema<IHouseRuleConfig>({
   endCondition: {
     type: String,
     enum: Object.values(EndConditionHouseRule),
+    default: EndConditionHouseRule.lastManStanding,
+    required: true,
   },
   generalRules: {
     type: [String],

@@ -26,6 +26,35 @@ export enum CardSymbol {
   changeColor = "CHANGE_COLOR",
 }
 
+export function getCardScore(card: ICard): number {
+  if (card.color === CardColor.wild) return 50;
+
+  switch (card.symbol) {
+    case CardSymbol.zero:
+      return 0;
+    case CardSymbol.one:
+      return 1;
+    case CardSymbol.two:
+      return 2;
+    case CardSymbol.three:
+      return 3;
+    case CardSymbol.four:
+      return 4;
+    case CardSymbol.five:
+      return 5;
+    case CardSymbol.six:
+      return 6;
+    case CardSymbol.seven:
+      return 7;
+    case CardSymbol.eight:
+      return 8;
+    case CardSymbol.nine:
+      return 9;
+    default:
+      return 20;
+  }
+}
+
 export interface ICard {
   symbol: CardSymbol;
   color: CardColor;

@@ -29,6 +29,8 @@ export enum GameActionServer {
   viewHand = "viewHand",
   endGame = "endGame",
   requestPrompt = "requestPrompt",
+  refreshDeck = "refreshDeck",
+  eliminate = "eliminate",
 }
 
 export enum GamePromptType {
@@ -64,7 +66,7 @@ export interface IGame {
   players: IPlayer[];
   discardPile: mongoose.Types.ObjectId[];
   drawPile: mongoose.Types.ObjectId[];
-  eliminatedPlayers: mongoose.Types.ObjectId[];
+  eliminatedPlayers: number[];
   finished: boolean;
 }
 
@@ -82,7 +84,7 @@ export interface IGameMethods {
   requestPlayCard(userId: string, index: number): Promise<void>;
   canAnnounceLastCard(userId: string): Promise<boolean>;
   nextTurn(): void;
-  drawCard(playerIndex: number, quantity: number): void;
+  drawCard(playerIndex: number, quantity: number): Promise<void>;
   handlePlayerPrompt(
     userId: string,
     answer?: string | number | CardColor | boolean,
@@ -90,6 +92,8 @@ export interface IGameMethods {
   requestCardDraw(userId: string): void;
   handleCardEffect(cardId: mongoose.Types.ObjectId): Promise<void>;
   pushNotification(notification: IGameServerMessage): void;
+  endGame(): Promise<void>;
+  eliminatePlayer(playerIndex: number): Promise<void>;
 }
 
 export interface IGameMessage {

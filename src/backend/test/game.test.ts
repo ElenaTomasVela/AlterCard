@@ -27,6 +27,7 @@ import {
 import { token1, token2, token3, users } from "./setup";
 import {
   DrawHouseRule,
+  EndConditionHouseRule,
   HouseRule,
   StackDrawHouseRule,
 } from "../src/models/houseRule";
@@ -1130,43 +1131,101 @@ describe("House rules", async () => {
   });
 });
 
-test("End game", async () => {
-  const dbHandCard = await Card.findOne({
-    symbol: CardSymbol.one,
-    color: CardColor.red,
-  });
-  const dbDiscardCard = await Card.findOne({
-    symbol: CardSymbol.zero,
-    color: CardColor.red,
-  });
-  game.players[0].hand = [dbHandCard!._id];
-  game.eliminatedPlayers.push(game.players[2].user);
-  game.discardPile.push(dbDiscardCard!._id);
-  await game.save();
+describe("End game", () => {
+  test("Last man standing", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.red,
+    });
+    game.players[0].hand = [dbHandCard!._id];
+    game.eliminatedPlayers.push(2);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
 
-  const session1 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
-    // @ts-expect-error
-    headers: { Cookie: `authorization=${token1}` },
-  });
-  await waitForSocketConnection(session1);
-  const session2 = new WebSocket(`ws://localhost:3000/game/${game.id}/ws`, {
-    // @ts-expect-error
-    headers: { Cookie: `authorization=${token2}` },
-  });
-  await waitForSocketConnection(session2);
-  session1.send(
-    JSON.stringify({
-      action: GameAction.playCard,
-      data: 0,
-    } as IGameMessage),
-  );
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
 
-  const message = JSON.parse(
-    await waitForSocketMessage(session1),
-  ) as IGameServerMessage;
-  const gameAfter = await Game.findById(game._id);
-  expect(message.action).toBe(GameActionServer.endGame);
-  expect(message.data[0]).toEqual(users[2].username);
-  expect(message.data[1]).toEqual(users[0].username);
-  expect(gameAfter).toBeNull();
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.endGame);
+    expect(message.data[0]).toEqual(users[2].username);
+    expect(message.data[1]).toEqual(users[0].username);
+    expect(gameAfter).toBeNull();
+  });
+
+  test("Scoring", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.changeColor,
+      color: CardColor.wild,
+    });
+    game.houseRules.endCondition = EndConditionHouseRule.scoreAfterFirstWin;
+    game.players[0].hand = [dbHandCard!._id];
+    game.players[1].hand = [
+      dbHandCard!._id,
+      dbHandCard!._id,
+      dbHandCard!._id,
+      dbHandCard!._id,
+    ];
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.endGame);
+    expect(message.data[0].user).toEqual(users[0].username);
+    expect(message.data[0].score).toBe(0);
+    expect(message.data[2].user).toEqual(users[1].username);
+    expect(message.data[2].score).toBe(200);
+    expect(gameAfter).toBeNull();
+  });
+
+  test("Scoring, Mercy elimination", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.changeColor,
+      color: CardColor.wild,
+    });
+    game.houseRules.endCondition =
+      EndConditionHouseRule.scoreAfterFirstWinMercy;
+    game.players[0].hand = [dbHandCard!._id];
+    game.eliminatedPlayers.push(1);
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.endGame);
+    expect(message.data[0].user).toEqual(users[0].username);
+    expect(message.data[0].score).toBe(0);
+    expect(message.data.length).toBe(2);
+    expect(
+      message.data.find((p: { user: string }) => p.user == users[1].username),
+    ).toBeUndefined();
+    expect(gameAfter).toBeNull();
+  });
 });

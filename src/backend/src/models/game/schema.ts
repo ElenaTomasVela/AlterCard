@@ -1,12 +1,20 @@
 import mongoose from "mongoose";
 import {
   DrawHouseRule,
+  EndConditionHouseRule,
   HouseRule,
   HouseRuleConfigSchema,
   StackDrawHouseRule,
 } from "../houseRule";
 import { IWaitingRoom } from "../waitingRoom";
-import { Card, CardColor, CardDeck, CardSymbol, ICard } from "../card";
+import {
+  Card,
+  CardColor,
+  CardDeck,
+  CardSymbol,
+  ICard,
+  getCardScore,
+} from "../card";
 import { NotFoundError, t } from "elysia";
 import { dealCards, getFirstNonWild, shuffle } from "../../libs/utils";
 import {
@@ -18,6 +26,7 @@ import {
   IGamePrompt,
   IPlayer,
 } from "./types";
+import { User } from "../user";
 
 const PlayerSchema = new mongoose.Schema<IPlayer>({
   user: {
@@ -93,9 +102,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         default: [],
       },
     ],
-    eliminatedPlayers: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
-    ],
+    eliminatedPlayers: [{ type: [Number], default: [] }],
     finished: {
       type: Boolean,
       default: false,
@@ -110,7 +117,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           counter =
             (counter + orientation + this.players.length) % this.players.length;
           // Skip players that already won
-        } while (this.eliminatedPlayers.includes(this.players[counter].user));
+        } while (this.players[counter].hand.length === 0);
         return counter;
       },
       pushNotification(notification) {
@@ -255,7 +262,14 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           this.pushNotification({ action: GameActionServer.changeColor });
         }
 
-        if (player.hand.length == 0) this.eliminatedPlayers.push(player.user);
+        if (player.hand.length == 0) {
+          if (
+            this.houseRules.endCondition ===
+            EndConditionHouseRule.lastManStanding
+          )
+            await this.eliminatePlayer(playerIndex);
+          else await this.endGame();
+        }
 
         return dbCard!;
       },
@@ -282,21 +296,26 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
           user: this.players[playerIndex].user.toString(),
         });
       },
-      drawCard(playerIndex, quantity = 1) {
+      async drawCard(playerIndex, quantity = 1) {
         const player = this.players[playerIndex];
         for (let i = 0; i < quantity; i++) {
           // Restock deck if empty
-          if (this.drawPile.length == 0) {
+          if (this.drawPile.length == 0 && this.discardPile.length > 1) {
             const newCards = this.discardPile.splice(
               0,
               this.discardPile.length - 1,
             );
-            shuffle(newCards);
             this.drawPile.push(...newCards);
+            shuffle(this.drawPile);
+
+            this.pushNotification({
+              action: GameActionServer.refreshDeck,
+              data: this.drawPile.length,
+            });
           }
 
           const card = this.drawPile.pop();
-          player!.hand.push(card!);
+          if (card) player!.hand.push(card);
         }
         this.pushNotification({
           action: GameActionServer.draw,
@@ -311,6 +330,32 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             user: player.user.toString(),
           });
         }
+        if (
+          player.hand.length >= 25 &&
+          this.houseRules.endCondition ===
+            EndConditionHouseRule.scoreAfterFirstWinMercy
+        )
+          await this.eliminatePlayer(playerIndex);
+      },
+      async eliminatePlayer(playerIndex) {
+        this.eliminatedPlayers.push(playerIndex);
+        this.pushNotification({
+          action: GameActionServer.eliminate,
+          data: playerIndex,
+        });
+
+        if (this.players[playerIndex].hand.length !== 0) {
+          const cards = this.players[playerIndex].hand.splice(0);
+          this.drawPile.push(...cards);
+          shuffle(this.drawPile);
+          this.pushNotification({
+            action: GameActionServer.refreshDeck,
+            data: this.drawPile.length,
+          });
+        }
+
+        if (this.players.length - this.eliminatedPlayers.length < 2)
+          await this.endGame();
       },
 
       nextTurn() {
@@ -341,12 +386,6 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             data: prompt,
             user: this.players[prompt.player!].user._id.toString(),
           });
-        }
-
-        // Finish game
-        if (this.eliminatedPlayers.length == this.players.length - 1) {
-          this.finished = true;
-          this.eliminatedPlayers.push(this.players[this.currentPlayer].user);
         }
       },
 
@@ -530,6 +569,88 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             player: this.currentPlayer,
           });
         }
+      },
+      async endGame() {
+        this.finished = true;
+        let winners: ({ user: string; score: number } | string)[];
+        switch (this.houseRules.endCondition) {
+          case EndConditionHouseRule.lastManStanding:
+            this.eliminatedPlayers.push(
+              this.nextPlayerIndex(this.currentPlayer),
+            );
+            winners = await Promise.all(
+              this.eliminatedPlayers.map(
+                async (i) =>
+                  (await User.findById(this.players[i].user))!.username,
+              ),
+            );
+            break;
+
+          case EndConditionHouseRule.scoreAfterFirstWin:
+            {
+              const handsIds = this.players.map((p) => p.hand);
+              const hands = await Promise.all(
+                handsIds.map(
+                  async (h) =>
+                    await Promise.all(
+                      h.map(async (c) => (await Card.findById(c))!),
+                    ),
+                ),
+              );
+              const scores = hands.map((h) => h.map((c) => getCardScore(c)));
+              const totals = scores.map((h) =>
+                h.reduce((ac, current) => ac + current, 0),
+              );
+              const sortedPlayers = [...Array(this.players.length).keys()].sort(
+                (a, b) => totals[a] - totals[b],
+              );
+              winners = await Promise.all(
+                sortedPlayers.map(async (i) => ({
+                  user: (await User.findById(this.players[i].user))!.username,
+                  score: totals[i],
+                })),
+              );
+            }
+            break;
+          case EndConditionHouseRule.scoreAfterFirstWinMercy:
+            {
+              const eligiblePlayersIndexes = [
+                ...Array(this.players.length).keys(),
+              ].filter((i) => !this.eliminatedPlayers.includes(i));
+              const handsIds = eligiblePlayersIndexes.map(
+                (i) => this.players[i].hand,
+              );
+              const hands = await Promise.all(
+                handsIds.map(
+                  async (h) =>
+                    await Promise.all(
+                      h.map(async (c) => (await Card.findById(c))!),
+                    ),
+                ),
+              );
+              const scores = hands.map((h) => h.map((c) => getCardScore(c)));
+              const totals = scores.map((h) =>
+                h.reduce((ac, current) => ac + current, 0),
+              );
+              const sortedPlayers = eligiblePlayersIndexes.sort(
+                (a, b) => totals[a] - totals[b],
+              );
+              winners = await Promise.all(
+                sortedPlayers.map(async (i) => ({
+                  user: (await User.findById(this.players[i].user))!.username,
+                  score: totals[i],
+                })),
+              );
+            }
+            break;
+        }
+
+        this.notifications = [
+          {
+            action: GameActionServer.endGame,
+            data: winners,
+          },
+        ];
       },
     },
   },

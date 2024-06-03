@@ -564,31 +564,15 @@ export const app = new Elysia()
                 break;
             }
 
-            if (game?.finished) {
-              const winningPlayers = await User.aggregate()
-                .match({
-                  _id: { $in: game.eliminatedPlayers },
-                })
-                .addFields({
-                  order: { $indexOfArray: [game.eliminatedPlayers, "$_id"] },
-                })
-                .sort({ order: 1 })
-                .project({ username: 1 });
-
-              serverInstance?.publish(
-                ws.data.params.id,
-                JSON.stringify(<IGameServerMessage>{
-                  action: GameActionServer.endGame,
-                  data: winningPlayers.map((p) => p.username),
-                }),
-              );
-              await Game.deleteOne({ _id: game._id });
-              ws.close();
-            }
             await game.save();
 
             for (const m of game.notifications || []) {
               serverInstance?.publish(ws.data.params.id, JSON.stringify(m));
+            }
+
+            if (game?.finished) {
+              await Game.deleteOne({ _id: game._id });
+              ws.close();
             }
           } catch (error: any) {
             ws.send(
