@@ -1199,13 +1199,13 @@ describe("End game", () => {
 
   test("Scoring, Mercy elimination", async () => {
     const dbHandCard = await Card.findOne({
-      symbol: CardSymbol.changeColor,
+      symbol: CardSymbol.draw4,
       color: CardColor.wild,
     });
     game.houseRules.endCondition =
       EndConditionHouseRule.scoreAfterFirstWinMercy;
     game.players[0].hand = [dbHandCard!._id];
-    game.eliminatedPlayers.push(1);
+    game.players[1].hand = Array(24).fill(dbHandCard!._id);
     await game.save();
 
     session1.send(
