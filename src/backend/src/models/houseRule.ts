@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 
 export enum HouseRule {
   interjections = "INTERJECTIONS",
-  restrictedDraw4 = "RESTRICTED_DRAW_4",
 }
 
 export enum DrawHouseRule {
