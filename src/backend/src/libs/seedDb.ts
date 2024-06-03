@@ -4,9 +4,6 @@ import { seedCards } from "../seeders/seedCards";
 
 await connectDB();
 
-await mongoose.connection.dropDatabase();
-console.log("Dropped DB");
-
 await seedCards();
 console.log("Seeded DB");
 

@@ -59,6 +59,8 @@ const cards = [
 ];
 
 export async function seedCards() {
+  Card.deleteMany({});
+  CardDeck.deleteMany({});
   const cardDeck: mongoose.Types.ObjectId[] = [];
   for (const cardDef of cards) {
     const card = new Card({
