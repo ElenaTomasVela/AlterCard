@@ -78,7 +78,7 @@ const HouseRuleSwitch = ({
         <TooltipTrigger asChild>
           <span className="grid grid-cols-subgrid col-span-2">
             <label
-              className="cursor-pointer select-none"
+              className={`${!disable && "cursor-pointer"} select-none`}
               htmlFor={houseRule.id}
             >
               {houseRule.name}
@@ -162,8 +162,8 @@ function HouseRuleSelect({
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <Label
-          htmlFor="drawCardStack"
-          className="text-base font-normal my-auto"
+          htmlFor={label}
+          className={`text-base select-none font-normal my-auto ${disable && "pointer-events-none"}`}
         >
           {label}
         </Label>
@@ -172,7 +172,7 @@ function HouseRuleSelect({
             variant="outline"
             className="justify-between"
             size="sm"
-            id="drawCardStack"
+            id={label}
             disabled={disable}
           >
             {(value && HouseRuleName[value]) || "None"}
