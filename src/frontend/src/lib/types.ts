@@ -50,44 +50,54 @@ export interface ICard {
 }
 
 export enum HouseRule {
-  stackDraw = "STACK_DRAW",
-  punishmentDraw = "PUNISHMENT_DRAW",
   interjections = "INTERJECTIONS",
-  restrictedDraw4 = "RESTRICTED_DRAW_4",
 }
 
-export const HouseRuleDetails = [
-  {
-    name: "Stackable Draw Cards",
-    description:
-      "When a player plays a Draw X card, the next player may respond with a Draw Y card, " +
-      "where Y must be greater than or equal to X. \n\nThe next player must draw the added amount or" +
-      "play another Draw Z card, where Z must be greater than or equal to Y.",
-    id: HouseRule.stackDraw,
-  },
-  {
-    name: "Punishment Draw",
-    description:
-      "When a player, in their turn, draws a card and chooses not to play it, they must draw another card.",
-    id: HouseRule.punishmentDraw,
-  },
-  {
-    name: "Allow Interjections",
-    description:
-      "When a player has a card that matches the discard pile's card in both color and symbol, it may be played " +
-      "even outside of the player's turn.\n\n This rule does not apply to Wild Cards.",
+export enum DrawHouseRule {
+  punishmentDraw = "PUNISHMENT_DRAW",
+  drawUntilPlay = "DRAW_UNTIL_PLAY",
+}
+
+export enum StackDrawHouseRule {
+  all = "ALL",
+  flat = "FLAT",
+  progressive = "PROGRESSIVE",
+}
+
+export enum EndConditionHouseRule {
+  lastManStanding = "LAST_MAN_STANDING",
+  scoreAfterFirstWin = "SCORE_AFTER_FIRST_WIN",
+  scoreAfterFirstWinMercy = "SCORE_AFTER_FIRST_WIN_MERCY",
+}
+
+export const HouseRuleName = {
+  [HouseRule.interjections]: "Jump-in",
+  [DrawHouseRule.punishmentDraw]: "Extra card",
+  [DrawHouseRule.drawUntilPlay]: "Draw until play",
+  [StackDrawHouseRule.progressive]: "Progressive",
+  [StackDrawHouseRule.all]: "All",
+  [StackDrawHouseRule.flat]: "Flat",
+  [EndConditionHouseRule.lastManStanding]: "One player left",
+  [EndConditionHouseRule.scoreAfterFirstWin]: "Score",
+  [EndConditionHouseRule.scoreAfterFirstWinMercy]: "Score, mercy",
+};
+
+export const HouseRuleDetails = {
+  [HouseRule.interjections]: {
     id: HouseRule.interjections,
-  },
-  {
-    name: "Restricted Draw 4",
+    name: "Jump-in",
     description:
-      "A player may not play a Draw 4 card unless it's their only playable card.\n" +
-      "If another player suspects that this rule was violated, they may accuse the card player.\n\n" +
-      "If their accusation is correct, the cards to draw go to the accused. Otherwise, the accuser must " +
-      "draw that number of cards + 2.",
-    id: HouseRule.restrictedDraw4,
+      "If you have a card that matches the discard pile's card in color " +
+      "and symbol, you may play it out of turn.\nThis rule does not apply to Wild cards.",
   },
-];
+};
+
+export interface IHouseRuleConfig {
+  draw?: DrawHouseRule;
+  drawCardStacking?: StackDrawHouseRule;
+  endCondition: EndConditionHouseRule;
+  generalRules: HouseRule[];
+}
 
 export interface IWaitingRoom {
   host: {
@@ -97,7 +107,7 @@ export interface IWaitingRoom {
     user: { username: string };
     ready: boolean;
   }[];
-  houseRules: HouseRule[];
+  houseRules: IHouseRuleConfig;
   deck: string;
 }
 
@@ -107,6 +117,7 @@ export enum WaitingRoomAction {
   removeRule = "removeRule",
   ready = "ready",
   setDeck = "setDeck",
+  setRule = "setRule",
 }
 
 export enum WaitingRoomServerAction {
@@ -119,6 +130,7 @@ export enum WaitingRoomServerAction {
   newHost = "newHost",
   error = "error",
   setDeck = "setDeck",
+  setRule = "setRule",
 }
 
 export interface IWaitingRoomMessage {
@@ -210,11 +222,11 @@ export interface IGame {
   currentPlayer: number;
   promptQueue: IGamePrompt[];
   clockwiseTurns: boolean;
-  houseRules: HouseRule[];
+  houseRules: IHouseRuleConfig;
   players: IPlayer[];
   discardPile: ICard[];
   drawPile: { length: number };
-  winningPlayers: string[];
+  eliminatedPlayers: number[];
   finished: boolean;
   forcedColor?: CardColor;
 }

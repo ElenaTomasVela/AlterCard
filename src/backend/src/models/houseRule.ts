@@ -56,7 +56,7 @@ export const HouseRuleConfigSchema = new mongoose.Schema<IHouseRuleConfig>({
 });
 
 export const tHouseRuleConfig = t.Object({
-  draw: t.Optional(t.Enum(DrawHouseRule)),
-  drawCardStacking: t.Optional(t.Enum(StackDrawHouseRule)),
+  draw: t.Optional(t.Nullable(t.Enum(DrawHouseRule))),
+  drawCardStacking: t.Optional(t.Nullable(t.Enum(StackDrawHouseRule))),
   endCondition: t.Optional(t.Enum(EndConditionHouseRule)),
 });

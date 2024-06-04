@@ -541,7 +541,7 @@ export const Game = () => {
             <H1>The game has ended!</H1>
             <H3>Player ranking</H3>
             <ol className="flex flex-col list-decimal">
-              {game?.winningPlayers.map((u) => <li>{u}</li>)}
+              {/* {game?.winningPlayers.map((u) => <li>{u}</li>)} */}
             </ol>
           </div>
         </>

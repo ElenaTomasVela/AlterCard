@@ -58,7 +58,7 @@ export interface IWaitingRoomServerMessage {
 
 export const tWaitingRoomMessage = t.Object({
   action: t.Enum(WaitingRoomAction),
-  data: t.Optional(t.Union([t.String(), t.Boolean(), tHouseRuleConfig])),
+  data: t.Union([t.String(), t.Boolean(), tHouseRuleConfig]),
   player: t.Optional(t.String()),
 });
 

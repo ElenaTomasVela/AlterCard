@@ -1,19 +1,24 @@
-import { H1, H2 } from "@/components/Headings";
+import { H1, H2, H3 } from "@/components/Headings";
 import { Switch } from "@/components/ui/switch";
-import { useContext, useEffect, useState } from "react";
+import { ReactNode, useContext, useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { api, waitForSocketConnection } from "@/lib/utils";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   HouseRule,
-  HouseRuleDetails,
   IWaitingRoom,
   ICardDeck,
   IWaitingRoomMessage,
   WaitingRoomAction,
   IWaitingRoomServerMessage,
   WaitingRoomServerAction,
+  IHouseRuleConfig,
+  HouseRuleName,
+  StackDrawHouseRule,
+  DrawHouseRule,
+  EndConditionHouseRule,
+  HouseRuleDetails,
 } from "@/lib/types";
 import {
   Tooltip,
@@ -25,6 +30,14 @@ import { AuthContext, AuthContextType } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Command, CommandItem } from "@/components/ui/command";
+import { CommandList } from "cmdk";
+import { Separator } from "@/components/ui/separator";
 
 const Player = ({
   player,
@@ -63,7 +76,13 @@ const HouseRuleSwitch = ({
     <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="flex items-center gap-3">
+          <span className="grid grid-cols-subgrid col-span-2">
+            <label
+              className="cursor-pointer select-none"
+              htmlFor={houseRule.id}
+            >
+              {houseRule.name}
+            </label>
             <Switch
               className="shadow-inner"
               id={houseRule.id}
@@ -71,17 +90,10 @@ const HouseRuleSwitch = ({
               checked={checked}
               onCheckedChange={onChange}
             />
-            <label
-              className="cursor-pointer select-none"
-              htmlFor={houseRule.id}
-            >
-              {houseRule.name}
-            </label>
           </span>
         </TooltipTrigger>
-        <TooltipContent side="left">
+        <TooltipContent side="bottom" align="start">
           <p>{houseRule.description}</p>
-          <TooltipArrow className="fill-gray-200 w-5 h-3" />
         </TooltipContent>
       </Tooltip>
     </>
@@ -128,6 +140,86 @@ const DeckSelect = ({
   );
 };
 
+function HouseRuleSelect({
+  options,
+  value,
+  onChange,
+  disable,
+  label,
+  noneOption,
+  children,
+}: {
+  options: string[];
+  value: string | undefined;
+  label: string;
+  onChange: (option: string | null) => void;
+  noneOption?: boolean;
+  children?: ReactNode;
+  disable?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <Label
+          htmlFor="drawCardStack"
+          className="text-base font-normal my-auto"
+        >
+          {label}
+        </Label>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="justify-between"
+            size="sm"
+            id="drawCardStack"
+            disabled={disable}
+          >
+            {(value && HouseRuleName[value]) || "None"}
+            <Icon icon="lucide:chevron-down" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="p-2 w-fit">
+          <div className="flex gap-2">
+            <Command className="w-fit">
+              <CommandList className="">
+                {noneOption && (
+                  <CommandItem
+                    onSelect={() => {
+                      onChange(null);
+                      setOpen(false);
+                    }}
+                  >
+                    None
+                  </CommandItem>
+                )}
+                {options.map((option, index) => (
+                  <CommandItem
+                    key={index}
+                    value={option}
+                    onSelect={(v) => {
+                      onChange(v);
+                      setOpen(false);
+                    }}
+                  >
+                    {HouseRuleName[option] || "None"}
+                  </CommandItem>
+                ))}
+              </CommandList>
+            </Command>
+            <div>
+              <Separator orientation="vertical" />
+            </div>
+            <div className="px-1 text-sm w-80 flex flex-col gap-2">
+              {children}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    </>
+  );
+}
+
 export const WaitingRoom = () => {
   const { user } = useContext(AuthContext) as AuthContextType;
   const [room, setRoom] = useState<IWaitingRoom>();
@@ -151,22 +243,35 @@ export const WaitingRoom = () => {
   };
 
   const addPlayer = (player: string) => {
-    setRoom((r) => ({
-      ...r!,
-      users: [
-        ...r!.users,
-        {
-          user: { username: player },
-          ready: false,
-        },
-      ],
-    }));
+    setRoom((r) => {
+      if (!r) return;
+      return {
+        ...r,
+        users: [
+          ...r!.users,
+          {
+            user: { username: player },
+            ready: false,
+          },
+        ],
+      };
+    });
+  };
+
+  const setHouseRuleConfig = (config: IHouseRuleConfig) => {
+    setRoom((r) => {
+      if (!r) return;
+      return { ...r, houseRules: Object.assign(r.houseRules, config) };
+    });
   };
 
   const addHouseRule = (rule: HouseRule) => {
     setRoom((r) => {
       if (!r) return;
-      const newHouseRules = [...r!.houseRules, rule];
+      const newHouseRules: IHouseRuleConfig = {
+        ...r.houseRules,
+        generalRules: [...r.houseRules.generalRules, rule],
+      };
       return {
         ...r,
         houseRules: newHouseRules,
@@ -177,7 +282,10 @@ export const WaitingRoom = () => {
   const removeHouseRule = (rule: HouseRule) => {
     setRoom((r) => {
       if (!r) return;
-      const newHouseRules = r.houseRules.filter((r) => r != rule);
+      const newHouseRules: IHouseRuleConfig = {
+        ...r.houseRules,
+        generalRules: r.houseRules.generalRules.filter((hr) => hr !== rule),
+      };
       return {
         ...r,
         houseRules: newHouseRules,
@@ -204,7 +312,6 @@ export const WaitingRoom = () => {
     );
     await waitForSocketConnection(webSocket);
     toast({ description: "Successfully connected to the room" });
-
     webSocket.addEventListener("message", (message) => {
       if (message.data === "success") return;
       const msgObject: IWaitingRoomServerMessage = JSON.parse(message.data);
@@ -244,6 +351,10 @@ export const WaitingRoom = () => {
         case WaitingRoomServerAction.setDeck:
           if (typeof msgObject.data !== "string") return;
           chooseDeck(msgObject.data);
+          break;
+        case WaitingRoomServerAction.setRule:
+          if (typeof msgObject.data !== "object") return;
+          setHouseRuleConfig(msgObject.data);
           break;
         case WaitingRoomServerAction.newHost:
         case WaitingRoomServerAction.error:
@@ -286,6 +397,16 @@ export const WaitingRoom = () => {
     }
   };
 
+  const changeHouseRuleConfig = (category: string, value: string | null) => {
+    if (!socket || !user) return;
+    socket.send(
+      JSON.stringify({
+        action: WaitingRoomAction.setRule,
+        data: { [category]: value },
+      }),
+    );
+  };
+
   const changeDeck = async (id: string) => {
     if (!socket || !user) return;
     socket.send(
@@ -316,17 +437,87 @@ export const WaitingRoom = () => {
           <div className="flex justify-between flex-wrap w-3/5">
             <div>
               <H2 className="font-normal">Choose your House Rules</H2>
-              <div className="flex flex-col gap-3 p-5">
-                {room &&
-                  HouseRuleDetails.map((r, index) => (
-                    <HouseRuleSwitch
-                      houseRule={r}
-                      key={index}
-                      disable={user != room.host?.username}
-                      checked={room.houseRules.includes(r.id)}
-                      onChange={(add) => changeHouseRule(r.id, add)}
-                    />
-                  ))}
+              <div className="grid gap-3 p-5 grid-cols-2">
+                <div className="grid grid-cols-subgrid col-span-2 gap-2">
+                  <HouseRuleSelect
+                    disable={room?.host.username !== user}
+                    noneOption
+                    label="Draw Card stacking"
+                    value={room?.houseRules.drawCardStacking}
+                    options={Object.values(StackDrawHouseRule)}
+                    onChange={(value) =>
+                      changeHouseRuleConfig("drawCardStacking", value)
+                    }
+                  >
+                    <p>
+                      Allow countering a Draw card by playing another Draw Card,
+                      combining its values against the next player.
+                    </p>
+                    <p>
+                      <strong>All:</strong> All Draw cards may be used to
+                      counter.
+                    </p>
+                    <p>
+                      <strong>Flat:</strong> Only Draw cards of same value may
+                      be used to counter.
+                    </p>
+                    <p>
+                      <strong>Progressive:</strong> Only Draw Cards of equal or
+                      higher value may be used to counter
+                    </p>
+                  </HouseRuleSelect>
+                  <HouseRuleSelect
+                    disable={room?.host.username !== user}
+                    noneOption
+                    label="Draw punishment"
+                    value={room?.houseRules.draw}
+                    options={Object.values(DrawHouseRule)}
+                    onChange={(value) => changeHouseRuleConfig("draw", value)}
+                  >
+                    <p>Punishment when not playing a drawn card.</p>
+                    <p>
+                      <strong>Extra Card:</strong> One more card is drawn before
+                      the turn ends.
+                    </p>
+                    <p>
+                      <strong>Draw until play:</strong> The player must draw
+                      until they can play a card.
+                    </p>
+                  </HouseRuleSelect>
+                  <HouseRuleSelect
+                    disable={room?.host.username !== user}
+                    label="Game ending condition"
+                    value={room?.houseRules.endCondition}
+                    options={Object.values(EndConditionHouseRule)}
+                    onChange={(value) =>
+                      changeHouseRuleConfig("endCondition", value)
+                    }
+                  >
+                    <p>
+                      <strong>One player left:</strong> The game continues until
+                      only 1 player has any cards in hand.
+                    </p>
+                    <p>
+                      <strong>Score:</strong> The game ends as soon as a player
+                      has no cards. The rest of players are ranked from lowest
+                      to highest score.
+                    </p>
+                    <p>
+                      <strong>Score, mercy:</strong> Same as Score, but players
+                      with 25 cards or more are eliminated from the game.
+                    </p>
+                  </HouseRuleSelect>
+                  <HouseRuleSwitch
+                    disable={room?.host.username !== user}
+                    houseRule={HouseRuleDetails[HouseRule.interjections]}
+                    checked={room?.houseRules.generalRules.includes(
+                      HouseRule.interjections,
+                    )}
+                    onChange={(checked) =>
+                      changeHouseRule(HouseRule.interjections, checked)
+                    }
+                  />
+                </div>
               </div>
             </div>
             <div className="flex flex-col gap-3">

@@ -202,7 +202,7 @@ export const app = new Elysia()
           );
 
           if (updated && updated.users.length == 0) {
-            await WaitingRoom.findByIdAndDelete(ws.data.params.id);
+            // await WaitingRoom.findByIdAndDelete(ws.data.params.id);
             return;
           }
 
@@ -301,7 +301,7 @@ export const app = new Elysia()
                 Object.assign(waitingRoom?.houseRules!, message.data);
                 await waitingRoom?.save();
 
-                ws.publish(
+                serverInstance?.publish(
                   ws.data.params.id,
                   JSON.stringify(<IWaitingRoomServerMessage>{
                     action: WaitingRoomServerAction.setRule,
@@ -376,7 +376,7 @@ export const app = new Elysia()
                   )
                 ) {
                   await WaitingRoom.findByIdAndUpdate(ws.data.params.id, {
-                    $pull: { houseRules: message.data },
+                    $pull: { "houseRules.generalRules": message.data },
                   });
 
                   ws.publish(
