@@ -1,4 +1,4 @@
-import { H1, H2, H3 } from "@/components/Headings";
+import { H1, H2 } from "@/components/Headings";
 import { Switch } from "@/components/ui/switch";
 import { ReactNode, useContext, useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
@@ -25,7 +25,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { TooltipArrow } from "@radix-ui/react-tooltip";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -125,12 +124,14 @@ const DeckSelect = ({
       />
       <Label
         htmlFor={`deck${deck._id}`}
-        className="group focus:outline-none
+        className="group focus:outline-none rounded-xl transition-all
         peer-checked:shadow-primary/10 peer-checked:shadow-xl peer-checked:border-primary/40
         "
       >
-        <Card className="p-3 flex flex-col text-center border-inherit">
-          <CardTitle className="text-lg font-semibold text-gray-500">
+        <Card className="p-3 flex flex-col text-center border-inherit min-w-fit">
+          <CardTitle
+            className={`text-lg font-semibold transition-all ${checked ? "text-primary-dark" : "text-gray-500 "}`}
+          >
             {deck.name}
           </CardTitle>
           <span className="text-gray-700 text-sm">{deck.description}</span>
@@ -419,6 +420,15 @@ export const WaitingRoom = () => {
 
   const startGame = () => {
     if (!socket || !user) return;
+
+    if (room?.deck == null) {
+      toast({ description: "You cannot start a game without a deck!" });
+      return;
+    }
+
+    if (room.users.length < 2) {
+      toast({ description: "You need at least 2 players to start a game!" });
+    }
     socket.send(JSON.stringify({ action: "start" }));
   };
 
@@ -426,18 +436,18 @@ export const WaitingRoom = () => {
     <>
       <div className="flex flex-col gap-5">
         <H1>Waiting Room</H1>
-        <div className="flex gap-8 justify-between flex-wrap">
-          <div className="">
+        <div className="flex gap-10 justify-between flex-wrap">
+          <div className="flex-1">
             <H2 className="font-normal">Current Players</H2>
             <div className="flex flex-col p-2">
               {room?.users &&
                 room.users.map((p, index) => <Player player={p} key={index} />)}
             </div>
           </div>
-          <div className="flex justify-between flex-wrap w-3/5">
-            <div>
+          <div className="flex justify-between flex-wrap flex-1 basis-2/5 gap-10">
+            <div className="">
               <H2 className="font-normal">Choose your House Rules</H2>
-              <div className="grid gap-3 p-5 grid-cols-2">
+              <div className="grid gap-3 md:px-5 py-3 grid-cols-2 w-full">
                 <div className="grid grid-cols-subgrid col-span-2 gap-2">
                   <HouseRuleSelect
                     disable={room?.host.username !== user}
@@ -520,9 +530,9 @@ export const WaitingRoom = () => {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 flex-1">
               <H2 className="font-normal">Choose your Deck</H2>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {decks &&
                   decks.map((d) => (
                     <DeckSelect
