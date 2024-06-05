@@ -20,7 +20,7 @@ export const Header = () => {
   return (
     <nav className="lg:flex items-center justify-between border-b-2 py-4 px-10 sticky top-0 bg-white hidden">
       <NavLink to="/" className="flex gap-2 items-center">
-        <Logo className="m-0 w-10" /> AlterUno
+        <Logo className="m-0 w-10" /> AlterCard
       </NavLink>
       <ul>
         <li>
@@ -63,7 +63,7 @@ export const MobileHeader = () => {
   return (
     <nav className="flex items-center justify-between border-b-2 py-4 px-5 sticky top-0 bg-white lg:hidden">
       <NavLink to="/" className="flex gap-2 items-center">
-        <Logo className="m-0 w-12" /> AlterUno
+        <Logo className="m-0 w-12" /> AlterCard
       </NavLink>
       <Sheet>
         <SheetTrigger asChild>
@@ -73,7 +73,7 @@ export const MobileHeader = () => {
         </SheetTrigger>
         <SheetContent className="flex flex-col gap-3">
           <SheetTitle className="flex gap-2 items-center">
-            <Logo className="m-0 w-12" /> AlterUno
+            <Logo className="m-0 w-12" /> AlterCard
           </SheetTitle>
           <Separator />
           <NavLink to="/rooms">Join a Game</NavLink>
