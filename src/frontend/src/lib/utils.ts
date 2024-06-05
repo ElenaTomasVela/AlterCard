@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import axios from "axios";
+import { CardColor, ICard } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -30,3 +31,23 @@ export const waitForSocketMessage = (socket: WebSocket) => {
     });
   });
 };
+
+export function isMatch(
+  card: ICard,
+  discardCard: ICard,
+  forcedColor?: CardColor,
+) {
+  return (
+    card.color === CardColor.wild ||
+    card.symbol === discardCard.symbol ||
+    card.color === (forcedColor || discardCard.color)
+  );
+}
+
+export function isExactMatch(card: ICard, discardCard: ICard) {
+  return (
+    card.color !== CardColor.wild &&
+    card.color === discardCard.color &&
+    card.symbol === discardCard.symbol
+  );
+}

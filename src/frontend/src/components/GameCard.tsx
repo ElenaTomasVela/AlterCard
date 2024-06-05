@@ -1,6 +1,5 @@
 import { CardColor, CardSymbol, ICard } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import React from "react";
 import {
   ChangeColorIcon,
   Draw2Icon,

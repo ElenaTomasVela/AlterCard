@@ -25,10 +25,59 @@ import {
   IGameServerMessage,
   IPlayer,
 } from "@/lib/types";
-import { api, waitForSocketConnection } from "@/lib/utils";
+import {
+  api,
+  isExactMatch,
+  isMatch,
+  waitForSocketConnection,
+} from "@/lib/utils";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { useContext, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+
+function PlayableCard({
+  disabled,
+  onClick,
+  card,
+}: {
+  disabled: boolean;
+  onClick: () => boolean;
+  card: ICard;
+}) {
+  const [animating, setAnimating] = useState(false);
+  function animateFunction() {
+    const result = onClick();
+    if (result === false) {
+      setAnimating(true);
+      setTimeout(() => setAnimating(false), 200);
+    }
+  }
+
+  return (
+    <button
+      disabled={disabled}
+      onClick={animateFunction}
+      className={`
+        ${animating && "animate-wiggle"}
+        justify-center transition-all
+        group relative outline-none
+        -mx-14 first:ml-0 last:mr-0
+        hover:-mx-2 first:hover:ml-0 last:hover:mr-0
+        focus:outline-none disabled:saturate-[25%] disabled:brightness-200
+        disabled:pointer-events-none disabled:cursor-not-allowed
+      `}
+    >
+      <GameCard
+        card={card}
+        className={`shadow-lg
+                      group-hover:-translate-y-5 group-hover:rotate-2 
+                      transition-[transform]
+                      group-focus:ring-4 ring-primary/50 ring-offset-2
+                        animate-in slide-in-from-top-16 fade-in `}
+      />
+    </button>
+  );
+}
 
 const Player = ({
   player,
@@ -76,9 +125,8 @@ const Player = ({
 export const Game = () => {
   const [game, setGame] = useState<IGame>();
   const [socket, setSocket] = useState<WebSocket>();
-  const [winners, setWinners] = useState<
-    string[] | { user: string; score: number }[]
-  >();
+  const [winners, setWinners] =
+    useState<(string | { user: string; score: number })[]>();
   const { user } = useContext(AuthContext) as AuthContextType;
   const { gameId } = useParams();
   const { toast } = useToast();
@@ -95,18 +143,18 @@ export const Game = () => {
       return prompt;
   };
 
-  const playCard = async (index: number) => {
-    if (!game) return;
+  const playCard = (index: number) => {
+    if (!game) return false;
     const card = myHand[index];
     const discardCard = game.discardPile[game.discardPile.length - 1];
     if (
-      card.color != CardColor.wild &&
-      card.color != discardCard.color &&
-      card.symbol != discardCard.symbol &&
-      game.forcedColor != card.color
+      game.currentPlayer === myPlayerIndex
+        ? !isMatch(card, discardCard, game.forcedColor)
+        : !game.houseRules.generalRules.includes(HouseRule.interjections) ||
+          !isExactMatch(card, discardCard)
     )
       //TODO: Add feedback for user to know that the play was invalid
-      return;
+      return false;
 
     socket?.send(
       JSON.stringify({
@@ -114,6 +162,7 @@ export const Game = () => {
         data: index,
       } as IGameMessage),
     );
+    return true;
   };
 
   const answerPrompt = (answer: unknown) => {
@@ -127,6 +176,7 @@ export const Game = () => {
       if (!g) return;
       return { ...g, promptQueue: g.promptQueue.slice(0, -1) };
     });
+    return true;
   };
 
   const drawCard = () => {
@@ -260,7 +310,9 @@ export const Game = () => {
         });
         break;
       case GameActionServer.endGame:
-        setWinners(msgObject.data);
+        setWinners(
+          msgObject.data as (string | { user: string; score: number })[],
+        );
         setGame((g) => {
           if (!g) return;
           return {
@@ -335,7 +387,7 @@ export const Game = () => {
                 <div className="relative flex-1 pb-5">
                   {getCurrentPrompt() && (
                     <div
-                      className="absolute text-center
+                      className="absolute text-center animate-in fade-in
                   w-full h-full bg-white/90 flex flex-col gap-2 z-10"
                     >
                       {
@@ -348,25 +400,20 @@ export const Game = () => {
                                 card={myHand.slice(-1)[0]}
                               />
                               <span className="flex gap-4 mx-auto">
-                                <Button
-                                  variant="outline"
-                                  onClick={() => {
-                                    answerPrompt(true);
-                                    const updatedHand = myHand.slice(0, -1);
-                                    setGame((g) => {
-                                      if (!g) return;
-                                      const updatedPlayers = g.players.map(
-                                        (p) =>
-                                          p.user.username == user
-                                            ? { ...p, hand: updatedHand }
-                                            : p,
-                                      );
-                                      return { ...g, players: updatedPlayers };
-                                    });
-                                  }}
-                                >
-                                  Play
-                                </Button>
+                                {isMatch(
+                                  myHand.slice(-1)[0],
+                                  game.discardPile.slice(-1)[0],
+                                  game.forcedColor,
+                                ) && (
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                      answerPrompt(true);
+                                    }}
+                                  >
+                                    Play
+                                  </Button>
+                                )}
                                 <Button
                                   onClick={() => answerPrompt(false)}
                                   variant="outline"
@@ -443,12 +490,17 @@ export const Game = () => {
                       }
                     </div>
                   )}
-                  <div className="flex gap-3 w-fit mx-auto hover:cursor-pointer">
-                    <button onClick={drawCard} className="relative">
-                      <CardBack />
+                  <div className="flex gap-3 w-fit mx-auto">
+                    <button
+                      onClick={drawCard}
+                      className="relative group"
+                      disabled={game.currentPlayer !== myPlayerIndex}
+                    >
+                      <CardBack className="group-disabled:opacity-50" />
                       <span
                         className="absolute bottom-1 right-1 aspect-square 
-                      bg-orange-200 w-1/4 px-2 rounded-full flex items-center justify-center"
+                      bg-orange-200 w-1/4 px-2 rounded-full flex items-center justify-center
+                        "
                       >
                         {game.drawPile.length}
                       </span>
@@ -494,8 +546,7 @@ export const Game = () => {
                 <div className="flex justify-around px-5 flex-1 z-10">
                   {myHand.map((c, index) => {
                     return (
-                      <button
-                        key={index}
+                      <PlayableCard
                         disabled={
                           !(
                             (game.currentPlayer === myPlayerIndex ||
@@ -516,23 +567,8 @@ export const Game = () => {
                             ? answerPrompt(index)
                             : playCard(index)
                         }
-                        className="justify-center transition-[margin,opacity,filter]
-                      group relative
-                      -mx-14 first:ml-0 last:mr-0
-                      hover:-mx-2 first:hover:ml-0 last:hover:mr-0
-                      focus:outline-none disabled:saturate-[25%] disabled:brightness-200
-                      disabled:pointer-events-none disabled:cursor-not-allowed
-                    "
-                      >
-                        <GameCard
-                          card={c}
-                          className="shadow-lg
-                      group-hover:-translate-y-5 group-hover:rotate-2 
-                      transition-[transform]
-                      group-focus:ring-4 ring-primary/50 ring-offset-2
-                        animate-in slide-in-from-top-16 fade-in"
-                        />
-                      </button>
+                        card={c}
+                      />
                     );
                   })}
                 </div>
