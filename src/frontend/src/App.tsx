@@ -13,7 +13,7 @@ function App() {
         />
         <div className="flex flex-col items-center flex-1 gap-10 my-auto">
           <span>
-            <h1 className="text-primary-dark text-7xl font-bold">AlterUno</h1>
+            <h1 className="text-primary-dark text-7xl font-bold">AlterCard</h1>
             <H3 className="text-center">Your House, your Rules</H3>
           </span>
           <div className="flex flex-col gap-3">
