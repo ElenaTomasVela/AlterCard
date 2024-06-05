@@ -202,7 +202,7 @@ export const app = new Elysia()
           );
 
           if (updated && updated.users.length == 0) {
-            // await WaitingRoom.findByIdAndDelete(ws.data.params.id);
+            await WaitingRoom.findByIdAndDelete(ws.data.params.id);
             return;
           }
 
