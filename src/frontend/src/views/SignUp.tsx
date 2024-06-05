@@ -37,7 +37,7 @@ export const SignUp = () => {
 
   return (
     <div className="flex justify-around">
-      <div className="text-center">Imagen</div>
+      <img src="/undraw_winners.svg" className="p-5 lg:w-1/3" />
       <Card className="shadow-md p-3">
         <CardHeader>
           <CardTitle className="font-bold">Sign Up</CardTitle>

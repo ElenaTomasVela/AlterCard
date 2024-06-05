@@ -2,6 +2,11 @@ import { GameCard, CardBack } from "@/components/GameCard";
 import { H1, H3 } from "@/components/Headings";
 import { Button } from "@/components/ui/button";
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -377,7 +382,7 @@ export const Game = () => {
                 {game.players[game.currentPlayer].user.username}'s turn
               </H1>
               <div className="flex flex-wrap gap-10">
-                <div>
+                <div className="flex flex-col gap-3">
                   {game.players
                     .filter((p) => p.user.username != user)
                     .map((p) => (
@@ -417,6 +422,7 @@ export const Game = () => {
                                 <Button
                                   onClick={() => answerPrompt(false)}
                                   variant="outline"
+                                  size="lg"
                                 >
                                   Keep in hand
                                 </Button>
@@ -536,14 +542,15 @@ export const Game = () => {
                 <Button
                   disabled={myPlayer!.announcingLastCard}
                   onClick={() => announceLastCard()}
-                  className={`relative ${myPlayer?.announcingLastCard && "bg-yellow-500"}`}
+                  size="lg"
+                  className={`relative ${myPlayer?.announcingLastCard && "bg-yellow-500"} text-lg`}
                 >
                   {myPlayer?.announcingLastCard && (
                     <span className="absolute bg-accent size-full rounded-md animate-ping"></span>
                   )}
                   <span className="relative inline-flex">Last Card!</span>
                 </Button>
-                <div className="flex justify-around px-5 flex-1 z-10">
+                <div className="lg:flex justify-around px-5 flex-1 z-10 hidden">
                   {myHand.map((c, index) => {
                     return (
                       <PlayableCard
@@ -572,6 +579,46 @@ export const Game = () => {
                     );
                   })}
                 </div>
+                <Carousel
+                  className="w-svw overflow-visible md:hidden z-10"
+                  opts={{ dragFree: true }}
+                >
+                  <CarouselContent className="py-2">
+                    {myHand.map((c, index) => {
+                      return (
+                        <CarouselItem className="basis-2/6">
+                          <PlayableCard
+                            disabled={
+                              !(
+                                (game.currentPlayer === myPlayerIndex ||
+                                  game.houseRules.generalRules.includes(
+                                    HouseRule.interjections,
+                                  )) &&
+                                (!getCurrentPrompt() ||
+                                  (getCurrentPrompt()?.player ===
+                                    myPlayerIndex &&
+                                    getCurrentPrompt()?.type ===
+                                      GamePromptType.stackDrawCard &&
+                                    (c.symbol === CardSymbol.draw2 ||
+                                      c.symbol === CardSymbol.draw4)))
+                              )
+                            }
+                            onClick={() =>
+                              getCurrentPrompt()?.type ==
+                              GamePromptType.stackDrawCard
+                                ? answerPrompt(index)
+                                : playCard(index)
+                            }
+                            card={c}
+                          />
+                          {/* <div className="border border-red-500 h-56"> */}
+                          {/*   This is a test */}
+                          {/* </div> */}
+                        </CarouselItem>
+                      );
+                    })}
+                  </CarouselContent>
+                </Carousel>
               </div>
             </div>
           </>
