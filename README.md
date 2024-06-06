@@ -65,9 +65,7 @@ By default, it will run on port 5173.
 
 ## With Docker
 
-The backend can receive a `.env.docker` file to separate the local execution environment from the Docker container's.
-A working example is provided in `.env.docker.example`.
-Keep in mind that the backend can't simply get "localhost" as the host for the MongoDB database.
+Default environment variables have been set to use with Docker Compose inside `src/docker-compose.yml` and `src/docker-compose-prod.yml`
 
 Inside the main `src` folder, you can use docker compose to run the frontend, backend, and a MongoDB database.
 
@@ -81,5 +79,4 @@ You can also choose to only run the database service and access it locally.
 docker compose up -d db
 ```
 
-By default, it will run on port 27017.
-
+By default, the database will run on port 27017.

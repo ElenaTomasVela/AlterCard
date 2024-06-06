@@ -1,29 +1,28 @@
-name: cardgame-dev
+name: cardgame-prod
+
 
 services:
   frontend:
     build: 
       context: ./frontend
-      target: dev
-    container_name: "cardgame-frontend"
+      target: prod
+    container_name: "cardgame-frontend-prod"
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
+      - "8000:80"
     depends_on:
       - backend
-    environment:
-      VITE_BACKEND_URL: http://localhost:3000
-      VITE_BACKEND_WS_URL: ws://localhost:3000
+    # The image is hard coded to use this as variables, given the fact that the
+    # js code needs to be built
+    # environment:
+    #   VITE_BACKEND_URL: http://localhost:3000
+    #   VITE_BACKEND_WS_URL: ws://localhost:3000
   backend:
     build:
       context: ./backend
-      target: dev
-    container_name: "cardgame-backend"
+      target: prod
+    container_name: "cardgame-backend-prod"
     ports:
       - "3000:3000"
-    volumes:
-      - ./backend:/app
     depends_on:
       - db
     environment:
@@ -33,12 +32,12 @@ services:
       DB_NAME: cardgame
       DB_URL: mongodb://mongodb:mongodb@db:27017/cardgame?authSource=admin&w=1
       JWT_SECRET: secret
-      FRONTEND_URL: localhost:5173
+      FRONTEND_URL: localhost:8000
   db:
     image: mongo
     ports:
       - "27017:27017"
-    container_name: "cardgame-db"
+    container_name: "cardgame-db-prod"
     environment:
       MONGO_INITDB_ROOT_USERNAME: mongodb
       MONGO_INITDB_ROOT_PASSWORD: mongodb
