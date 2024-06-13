@@ -7,9 +7,9 @@ name: Publish to DockerHub
 
 on:
   push:
-  # Publish semver tags as releases.
-    tags: 
-      - '*'
+    # Publish semver tags as releases.
+    tags:
+      - "*"
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -17,10 +17,8 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -30,8 +28,8 @@ jobs:
       id-token: write
 
     strategy:
-     matrix:
-       module: [frontend,backend]
+      matrix:
+        module: [frontend, backend]
 
     steps:
       - name: Checkout repository
@@ -42,7 +40,7 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
         with:
-          cosign-release: 'v2.2.4'
+          cosign-release: "v2.2.4"
 
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
@@ -65,10 +63,10 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
-          context: src/${{module}}
+          context: src/${{matrix.module}}
           push: true
           tags: |
-            etomasvela/altercard-${{matrix.module}}:${{GITHUB_REF_NAME}}
+            etomasvela/altercard-${{matrix.module}}:${{github.ref_name}}
             etomasvela/altercard-${{matrix.module}}:latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -83,7 +81,7 @@ jobs:
         env:
           # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
           TAGS: |
-            etomasvela/altercard-${{matrix.module}}:${{GITHUB_REF_NAME}}
+            etomasvela/altercard-${{matrix.module}}:${{github.ref_name}}
             etomasvela/altercard-${{matrix.module}}:latest
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
         # This step uses the identity token to provision an ephemeral certificate
