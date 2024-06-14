@@ -1129,6 +1129,162 @@ describe("House rules", async () => {
       );
     });
   });
+  describe("Skip Turn Counter", () => {
+    test("House rule not enabled", async () => {
+      const handCard = {
+        symbol: CardSymbol.draw4,
+        color: CardColor.wild,
+      } as ICard;
+      const skipTurnCard = {
+        symbol: CardSymbol.skipTurn,
+      };
+      const dbHandCard = await Card.findOne(handCard);
+      const dbSkipCard = await Card.findOne(skipTurnCard);
+      game.players[0].hand.push(dbHandCard!._id);
+      game.players[1].hand.push(dbSkipCard!._id);
+      game.houseRules.drawCardStacking = StackDrawHouseRule.all;
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForGameAction(session2, GameActionServer.requestPrompt);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: 7,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.error);
+      expect(message.data).toBe(GameError.unplayableCard);
+      expect(gameAfter?.promptQueue[0].player).toBe(1);
+    });
+
+    test("Counter with skip card", async () => {
+      const handCard = {
+        symbol: CardSymbol.draw4,
+        color: CardColor.wild,
+      } as ICard;
+      const skipTurnCard = {
+        symbol: CardSymbol.skipTurn,
+      };
+      const dbHandCard = await Card.findOne(handCard);
+      const dbSkipCard = await Card.findOne(skipTurnCard);
+      game.players[0].hand.push(dbHandCard!._id);
+      game.players[1].hand.push(dbSkipCard!._id);
+      game.houseRules.generalRules.push(HouseRule.skipCardCounter);
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForGameAction(session2, GameActionServer.requestPrompt);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: 7,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.playCard);
+      expect(message.data.symbol).toBe(CardSymbol.skipTurn);
+      expect(gameAfter?.promptQueue[0].type).toBe(GamePromptType.stackDrawCard);
+      expect(gameAfter?.promptQueue[0].player).toBe(2);
+    });
+  });
+  describe("Reverse Turn Counter", () => {
+    test("House rule not enabled", async () => {
+      const handCard = {
+        symbol: CardSymbol.draw4,
+        color: CardColor.wild,
+      } as ICard;
+      const skipTurnCard = {
+        symbol: CardSymbol.reverseTurn,
+      };
+      const dbHandCard = await Card.findOne(handCard);
+      const dbSkipCard = await Card.findOne(skipTurnCard);
+      game.players[0].hand.push(dbHandCard!._id);
+      game.players[1].hand.push(dbSkipCard!._id);
+      game.houseRules.drawCardStacking = StackDrawHouseRule.all;
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForGameAction(session2, GameActionServer.requestPrompt);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: 7,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.error);
+      expect(message.data).toBe(GameError.unplayableCard);
+      expect(gameAfter?.promptQueue[0].player).toBe(1);
+    });
+
+    test("Counter with reverse card", async () => {
+      const handCard = {
+        symbol: CardSymbol.draw4,
+        color: CardColor.wild,
+      } as ICard;
+      const skipTurnCard = {
+        symbol: CardSymbol.reverseTurn,
+      };
+      const dbHandCard = await Card.findOne(handCard);
+      const dbSkipCard = await Card.findOne(skipTurnCard);
+      game.players[0].hand.push(dbHandCard!._id);
+      game.players[1].hand.push(dbSkipCard!._id);
+      game.houseRules.generalRules.push(HouseRule.reverseCardCounter);
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForGameAction(session2, GameActionServer.requestPrompt);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.answerPrompt,
+          data: 7,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.playCard);
+      expect(message.data.symbol).toBe(CardSymbol.reverseTurn);
+      expect(gameAfter?.promptQueue[0].type).toBe(GamePromptType.stackDrawCard);
+      expect(gameAfter?.promptQueue[0].player).toBe(0);
+    });
+  });
 });
 
 describe("End game", () => {

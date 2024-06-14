@@ -3,6 +3,11 @@ import mongoose from "mongoose";
 
 export enum HouseRule {
   interjections = "INTERJECTIONS",
+  reverseCardCounter = "REVERSE_CARD_COUNTER",
+  skipCardCounter = "SKIP_CARD_COUNTER",
+  redZeroOfDeath = "RED_ZERO_OF_DEATH",
+  sevenSwitchesChosenHand = "SEVEN_SWITCHES_CHOSEN_HAND",
+  zeroRotatesHands = "ZERO_ROTATES_HANDS",
 }
 
 export enum DrawHouseRule {

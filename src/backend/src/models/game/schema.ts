@@ -110,9 +110,9 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
   },
   {
     methods: {
-      nextPlayerIndex(index: number) {
+      nextPlayerIndex(index: number, reverse: boolean = false) {
         let counter = index;
-        const orientation = this.clockwiseTurns ? 1 : -1;
+        const orientation = this.clockwiseTurns !== reverse ? 1 : -1;
         do {
           counter =
             (counter + orientation + this.players.length) % this.players.length;
@@ -191,6 +191,14 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         const discard = await Card.findById(discardId);
 
         return card.color == discard!.color || card.symbol == discard!.symbol;
+      },
+
+      isCounterPossible() {
+        return (
+          this.houseRules.drawCardStacking != null ||
+          this.houseRules.generalRules.includes(HouseRule.reverseCardCounter) ||
+          this.houseRules.generalRules.includes(HouseRule.skipCardCounter)
+        );
       },
 
       async requestPlayCard(userId, index) {
@@ -420,16 +428,28 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             if (
               answer == null ||
               typeof answer !== "number" ||
-              this.houseRules.drawCardStacking == null
+              !this.isCounterPossible()
             ) {
               this.drawCard(prompt.player, prompt.data!);
             } else {
               const cardId = this.players[prompt.player].hand[answer];
               const card = await Card.findById(cardId);
 
+              // Card playability checks
               if (
-                card?.symbol !== CardSymbol.draw2 &&
-                card?.symbol !== CardSymbol.draw4
+                !(
+                  (this.houseRules.drawCardStacking != null &&
+                    (card?.symbol === CardSymbol.draw2 ||
+                      card?.symbol === CardSymbol.draw4)) ||
+                  (card?.symbol === CardSymbol.skipTurn &&
+                    this.houseRules.generalRules.includes(
+                      HouseRule.skipCardCounter,
+                    )) ||
+                  (card?.symbol === CardSymbol.reverseTurn &&
+                    this.houseRules.generalRules.includes(
+                      HouseRule.reverseCardCounter,
+                    ))
+                )
               )
                 throw new Error(GameError.unplayableCard);
 
@@ -454,14 +474,21 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
               await this.playCard(prompt.player, answer, false);
 
               const cardsToDraw =
-                card!.symbol == CardSymbol.draw2 ? 2 : CardSymbol.draw4 ? 4 : 0;
+                card!.symbol === CardSymbol.draw2
+                  ? 2
+                  : CardSymbol.draw4
+                    ? 4
+                    : 0;
+              const targetPlayer =
+                card.symbol === CardSymbol.reverseTurn
+                  ? this.nextPlayerIndex(prompt.player, true)
+                  : this.nextPlayerIndex(prompt.player);
               // Replace prompt with new prompt for next player
               this.promptQueue.splice(promptIndex + 1, 0, {
                 type: GamePromptType.stackDrawCard,
                 data: cardsToDraw + prompt.data!,
-                player: this.nextPlayerIndex(prompt.player),
+                player: targetPlayer,
               });
-
               if (card.color === CardColor.wild) {
                 const chooseColorPrompt = this.promptQueue.find(
                   (p) => p.type == GamePromptType.chooseColor,
@@ -527,7 +554,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         if (!card) return;
         switch (card.symbol) {
           case CardSymbol.draw2:
-            if (this.houseRules.drawCardStacking != null)
+            if (this.isCounterPossible())
               this.promptQueue.push({
                 type: GamePromptType.stackDrawCard,
                 data: 2,
@@ -539,13 +566,13 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             }
             break;
           case CardSymbol.draw4:
-            if (this.houseRules.drawCardStacking != null)
+            if (this.isCounterPossible()) {
               this.promptQueue.push({
                 type: GamePromptType.stackDrawCard,
                 data: 4,
                 player: this.nextPlayerIndex(this.currentPlayer),
               });
-            else {
+            } else {
               this.drawCard(this.nextPlayerIndex(this.currentPlayer), 4);
               this.turnsToSkip = 1;
             }
