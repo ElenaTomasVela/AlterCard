@@ -1285,6 +1285,137 @@ describe("House rules", async () => {
       expect(gameAfter?.promptQueue[0].player).toBe(0);
     });
   });
+  describe("Red Zero of Death", () => {
+    test("Rule not enabled", async () => {
+      const handCard = {
+        symbol: CardSymbol.zero,
+        color: CardColor.red,
+      } as ICard;
+      const discardCard = {
+        color: CardColor.red,
+      };
+      const dbHandCard = await Card.findOne(handCard);
+      const dbDiscardCard = await Card.findOne(discardCard);
+      game.players[0].hand.push(dbHandCard!._id);
+      game.discardPile = [dbDiscardCard!._id];
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session2);
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.startTurn);
+      expect(gameAfter!.players[1].hand.length).toBe(
+        game.players[1].hand.length,
+      );
+    });
+    test("Draw 10 cards", async () => {
+      const handCard = {
+        symbol: CardSymbol.zero,
+        color: CardColor.red,
+      } as ICard;
+      const discardCard = {
+        color: CardColor.red,
+      };
+      const dbHandCard = await Card.findOne(handCard);
+      const dbDiscardCard = await Card.findOne(discardCard);
+      game.players[0].hand.push(dbHandCard!._id);
+      game.discardPile = [dbDiscardCard!._id];
+      game.houseRules.generalRules.push(HouseRule.redZeroOfDeath);
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session2);
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.draw);
+      expect(message.data).toBe(10);
+      expect(gameAfter!.players[1].hand.length).toBe(
+        game.players[1].hand.length + 10,
+      );
+    });
+    test("Red Zero should be 125 points", async () => {
+      const dbHandCard = await Card.findOne({
+        symbol: CardSymbol.changeColor,
+        color: CardColor.wild,
+      });
+      const dbRedZero = await Card.findOne({
+        symbol: CardSymbol.zero,
+        color: CardColor.red,
+      });
+      game.houseRules.endCondition = EndConditionHouseRule.scoreAfterFirstWin;
+      game.houseRules.generalRules.push(HouseRule.redZeroOfDeath);
+      game.players[0].hand = [dbHandCard!._id];
+      game.players[1].hand = [dbRedZero!._id];
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 0,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.endGame);
+      expect(message.data[0].user).toEqual(users[0].username);
+      expect(message.data[0].score).toBe(0);
+      expect(message.data[2].user).toEqual(users[1].username);
+      expect(message.data[2].score).toBe(125);
+      expect(gameAfter).toBeNull();
+    });
+    test("Red Zero should be 0 points if rule not enabled", async () => {
+      const dbHandCard = await Card.findOne({
+        symbol: CardSymbol.changeColor,
+        color: CardColor.wild,
+      });
+      const dbRedZero = await Card.findOne({
+        symbol: CardSymbol.zero,
+        color: CardColor.red,
+      });
+      game.houseRules.endCondition = EndConditionHouseRule.scoreAfterFirstWin;
+      game.players[0].hand = [dbHandCard!._id];
+      game.players[1].hand = [dbRedZero!._id];
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 0,
+        } as IGameMessage),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.endGame);
+      expect(message.data[0].user).toEqual(users[0].username);
+      expect(message.data[0].score).toBe(0);
+      expect(message.data[1].user).toEqual(users[1].username);
+      expect(message.data[1].score).toBe(0);
+      expect(gameAfter).toBeNull();
+    });
+  });
 });
 
 describe("End game", () => {

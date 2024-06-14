@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { HouseRule } from "./houseRule";
 
 export enum CardColor {
   red = "RED",
@@ -26,12 +27,18 @@ export enum CardSymbol {
   changeColor = "CHANGE_COLOR",
 }
 
-export function getCardScore(card: ICard): number {
+export function getCardScore(
+  card: ICard,
+  modifierRules: HouseRule[] = [],
+): number {
   if (card.color === CardColor.wild) return 50;
 
   switch (card.symbol) {
     case CardSymbol.zero:
-      return 0;
+      return modifierRules.includes(HouseRule.redZeroOfDeath) &&
+        card.color === CardColor.red
+        ? 125
+        : 0;
     case CardSymbol.one:
       return 1;
     case CardSymbol.two:

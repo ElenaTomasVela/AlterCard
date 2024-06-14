@@ -577,6 +577,13 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
               this.turnsToSkip = 1;
             }
             break;
+          case CardSymbol.zero:
+            if (
+              card.color === CardColor.red &&
+              this.houseRules.generalRules.includes(HouseRule.redZeroOfDeath)
+            )
+              this.drawCard(this.nextPlayerIndex(this.currentPlayer), 10);
+            break;
           case CardSymbol.skipTurn:
             this.turnsToSkip = 1;
             break;
@@ -624,7 +631,9 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
                     ),
                 ),
               );
-              const scores = hands.map((h) => h.map((c) => getCardScore(c)));
+              const scores = hands.map((h) =>
+                h.map((c) => getCardScore(c, this.houseRules.generalRules)),
+              );
               const totals = scores.map((h) =>
                 h.reduce((ac, current) => ac + current, 0),
               );
