@@ -31,6 +31,7 @@ export enum GameActionServer {
   requestPrompt = "requestPrompt",
   refreshDeck = "refreshDeck",
   eliminate = "eliminate",
+  cycleHands = "cycleHands",
 }
 
 export enum GamePromptType {

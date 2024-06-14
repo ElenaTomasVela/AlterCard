@@ -1416,6 +1416,87 @@ describe("House rules", async () => {
       expect(gameAfter).toBeNull();
     });
   });
+
+  describe("Zero cycles hands", () => {
+    test("Rule not enabled", async () => {
+      const dbCard = await Card.findOne({
+        symbol: CardSymbol.zero,
+      });
+      game.players[0].hand.push(dbCard!._id);
+      game.discardPile = [dbCard!._id];
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session2);
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.startTurn);
+      expect(gameAfter?.players[0].hand).toEqual(game.players[0].hand);
+      expect(gameAfter?.players[1].hand).toEqual(game.players[1].hand);
+      expect(gameAfter?.players[2].hand).toEqual(game.players[2].hand);
+    });
+    test("Cycle hands clockwise", async () => {
+      const dbCard = await Card.findOne({
+        symbol: CardSymbol.zero,
+      });
+      game.players[0].hand.push(dbCard!._id);
+      game.discardPile = [dbCard!._id];
+      game.houseRules.generalRules.push(HouseRule.zeroRotatesHands);
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session2);
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.cycleHands);
+      expect(gameAfter?.players[0].hand).toEqual(game.players[2].hand);
+      expect(gameAfter?.players[1].hand).toEqual(game.players[0].hand);
+      expect(gameAfter?.players[2].hand).toEqual(game.players[1].hand);
+    });
+    test("Cycle hands counterclockwise", async () => {
+      const dbCard = await Card.findOne({
+        symbol: CardSymbol.zero,
+      });
+      game.players[0].hand.push(dbCard!._id);
+      game.discardPile = [dbCard!._id];
+      game.houseRules.generalRules.push(HouseRule.zeroRotatesHands);
+      game.clockwiseTurns = false;
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session2);
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.cycleHands);
+      expect(gameAfter?.players[0].hand).toEqual(game.players[1].hand);
+      expect(gameAfter?.players[1].hand).toEqual(game.players[2].hand);
+      expect(gameAfter?.players[2].hand).toEqual(game.players[0].hand);
+    });
+  });
 });
 
 describe("End game", () => {

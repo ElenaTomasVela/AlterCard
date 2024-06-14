@@ -577,7 +577,27 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
               this.turnsToSkip = 1;
             }
             break;
+          case CardSymbol.seven:
+            break;
           case CardSymbol.zero:
+            if (
+              this.houseRules.generalRules.includes(HouseRule.zeroRotatesHands)
+            ) {
+              [...Array(this.players.length).keys()]
+                .filter((i) => this.players[i].hand.length > 0)
+                // Sorting in order to prevent the cycling from copying the same
+                // value throughout the array
+                .sort((a, b) => (this.clockwiseTurns ? a - b : b - a))
+                .forEach(
+                  (i) =>
+                    (this.players[i].hand =
+                      this.players[this.nextPlayerIndex(i, true)].hand),
+                );
+              this.pushNotification({
+                action: GameActionServer.cycleHands,
+              });
+            }
+
             if (
               card.color === CardColor.red &&
               this.houseRules.generalRules.includes(HouseRule.redZeroOfDeath)
