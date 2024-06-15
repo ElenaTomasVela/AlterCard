@@ -529,6 +529,17 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
                 }
             }
             break;
+          case GamePromptType.choosePlayerToSwitchWith:
+            if (typeof answer !== "number" || !(answer in this.players))
+              throw new Error(GameError.invalidAction);
+            const sourceHand = [...this.players[prompt.player].hand];
+            this.players[prompt.player].hand = this.players[answer].hand;
+            this.players[answer].hand = sourceHand;
+            this.pushNotification({
+              action: GameActionServer.swapHands,
+              data: [prompt.player, answer],
+            });
+            break;
         }
 
         this.promptQueue.shift();
@@ -578,6 +589,16 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             }
             break;
           case CardSymbol.seven:
+            if (
+              this.houseRules.generalRules.includes(
+                HouseRule.sevenSwitchesChosenHand,
+              )
+            )
+              this.promptQueue.push({
+                type: GamePromptType.choosePlayerToSwitchWith,
+                player: this.currentPlayer,
+              });
+
             break;
           case CardSymbol.zero:
             if (
@@ -594,7 +615,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
                       this.players[this.nextPlayerIndex(i, true)].hand),
                 );
               this.pushNotification({
-                action: GameActionServer.cycleHands,
+                action: GameActionServer.swapHands,
               });
             }
 

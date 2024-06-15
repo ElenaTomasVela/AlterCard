@@ -31,13 +31,14 @@ export enum GameActionServer {
   requestPrompt = "requestPrompt",
   refreshDeck = "refreshDeck",
   eliminate = "eliminate",
-  cycleHands = "cycleHands",
+  swapHands = "swapHands",
 }
 
 export enum GamePromptType {
   chooseColor = "chooseColor",
   stackDrawCard = "stackDrawCard",
   playDrawnCard = "playDrawnCard",
+  choosePlayerToSwitchWith = "choosePlayerToSwitchWith",
 }
 
 export enum GameError {

@@ -1464,7 +1464,7 @@ describe("House rules", async () => {
         await waitForSocketMessage(session2),
       ) as IGameServerMessage;
       const gameAfter = await Game.findById(game._id);
-      expect(message.action).toBe(GameActionServer.cycleHands);
+      expect(message.action).toBe(GameActionServer.swapHands);
       expect(gameAfter?.players[0].hand).toEqual(game.players[2].hand);
       expect(gameAfter?.players[1].hand).toEqual(game.players[0].hand);
       expect(gameAfter?.players[2].hand).toEqual(game.players[1].hand);
@@ -1491,11 +1491,73 @@ describe("House rules", async () => {
         await waitForSocketMessage(session2),
       ) as IGameServerMessage;
       const gameAfter = await Game.findById(game._id);
-      expect(message.action).toBe(GameActionServer.cycleHands);
+      expect(message.action).toBe(GameActionServer.swapHands);
       expect(gameAfter?.players[0].hand).toEqual(game.players[1].hand);
       expect(gameAfter?.players[1].hand).toEqual(game.players[2].hand);
       expect(gameAfter?.players[2].hand).toEqual(game.players[0].hand);
     });
+  });
+  describe("Seven swaps with chosen player", () => {
+    test("Rule not enabled", async () => {
+      const dbCard = await Card.findOne({
+        symbol: CardSymbol.seven,
+      });
+      game.players[0].hand.push(dbCard!._id);
+      game.discardPile = [dbCard!._id];
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 7,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session2);
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.startTurn);
+      expect(gameAfter?.players[0].hand).toEqual(game.players[0].hand);
+      expect(gameAfter?.players[1].hand).toEqual(game.players[1].hand);
+      expect(gameAfter?.players[2].hand).toEqual(game.players[2].hand);
+    });
+  });
+  test("Answer prompt correctly", async () => {
+    const dbCard = await Card.findOne({
+      symbol: CardSymbol.seven,
+    });
+    game.players[0].hand.push(dbCard!._id);
+    game.discardPile = [dbCard!._id];
+    game.houseRules.generalRules.push(HouseRule.sevenSwitchesChosenHand);
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 7,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+    session1.send(
+      JSON.stringify({
+        action: GameAction.answerPrompt,
+        data: 1,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.swapHands);
+    expect(message.data).toEqual([0, 1]);
+    expect(gameAfter?.players[0].hand).toEqual(game.players[1].hand);
+    expect(game.players[0].hand.slice(0, 7)).toEqual(
+      gameAfter!.players[1].hand,
+    );
   });
 });
 
