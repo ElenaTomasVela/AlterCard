@@ -51,6 +51,11 @@ export interface ICard {
 
 export enum HouseRule {
   interjections = "INTERJECTIONS",
+  reverseCardCounter = "REVERSE_CARD_COUNTER",
+  skipCardCounter = "SKIP_CARD_COUNTER",
+  redZeroOfDeath = "RED_ZERO_OF_DEATH",
+  sevenSwitchesChosenHand = "SEVEN_SWITCHES_CHOSEN_HAND",
+  zeroRotatesHands = "ZERO_ROTATES_HANDS",
 }
 
 export enum DrawHouseRule {
@@ -89,6 +94,42 @@ export const HouseRuleDetails = {
     description:
       "If you have a card that matches the discard pile's card in color " +
       "and symbol, you may play it out of turn.\nThis rule does not apply to Wild cards.",
+  },
+  [HouseRule.redZeroOfDeath]: {
+    id: HouseRule.redZeroOfDeath,
+    name: "Red Zero of Death",
+    description:
+      "The Red Zero forces the next player to draw 10 cards and is worth 125 points " +
+      "when scoring.\nThis draw effect cannot be countered.",
+  },
+  [HouseRule.reverseCardCounter]: {
+    id: HouseRule.reverseCardCounter,
+    name: "Reverse Turn Card can counter",
+    description:
+      "Reverse Turn cards can counter Draw Stacks, passing them to the previous " +
+      "player in the turn order.\nThe turn order will not be reversed, and play " +
+      "will resume from the player who countered.",
+  },
+  [HouseRule.skipCardCounter]: {
+    id: HouseRule.reverseCardCounter,
+    name: "Skip Turn Card can counter",
+    description:
+      "Skip Turn cards can counter Draw Stacks, passing them to the next " +
+      "player in the turn order.\n Play will resume after target resolved the effect.",
+  },
+  [HouseRule.zeroRotatesHands]: {
+    id: HouseRule.zeroRotatesHands,
+    name: "Zero rotates hands",
+    description:
+      "Cards with the number zero will make everyone pass their hand to the their next" +
+      " player in turn order.",
+  },
+  [HouseRule.sevenSwitchesChosenHand]: {
+    id: HouseRule.sevenSwitchesChosenHand,
+    name: "Seven switches hands",
+    description:
+      "Cards with the number seven ask who plays them to choose a player.\n" +
+      "The chosen player and the prompted player switch hands.",
   },
 };
 
@@ -170,12 +211,16 @@ export enum GameActionServer {
   viewHand = "viewHand",
   endGame = "endGame",
   requestPrompt = "requestPrompt",
+  refreshDeck = "refreshDeck",
+  eliminate = "eliminate",
+  swapHands = "swapHands",
 }
 
 export enum GamePromptType {
   chooseColor = "chooseColor",
   stackDrawCard = "stackDrawCard",
   playDrawnCard = "playDrawnCard",
+  choosePlayerToSwitchWith = "choosePlayerToSwitchWith",
 }
 
 export enum GameError {
@@ -185,6 +230,7 @@ export enum GameError {
   conditionsNotMet = "conditionsNotMet",
   waitingForPrompt = "waitingForPrompt",
   gameFinished = "gameFinished",
+  unplayableCard = "unplayableCard",
 }
 
 export interface IGamePrompt {
@@ -200,7 +246,7 @@ export interface IGameMessage {
 
 export interface IGameServerMessage {
   action: GameActionServer;
-  data?: string | number | ICard | ICard[] | string[] | IGamePrompt;
+  data?: string | number | ICard | ICard[] | string[] | IGamePrompt | number[];
   user?: string;
 }
 

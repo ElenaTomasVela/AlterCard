@@ -176,7 +176,14 @@ function HouseRuleSelect({
             id={label}
             disabled={disable}
           >
-            {(value && HouseRuleName[value]) || "None"}
+            {(value &&
+              HouseRuleName[
+                value as
+                  | EndConditionHouseRule
+                  | DrawHouseRule
+                  | StackDrawHouseRule
+              ]) ||
+              "None"}
             <Icon icon="lucide:chevron-down" />
           </Button>
         </PopoverTrigger>
@@ -517,16 +524,14 @@ export const WaitingRoom = () => {
                       with 25 cards or more are eliminated from the game.
                     </p>
                   </HouseRuleSelect>
-                  <HouseRuleSwitch
-                    disable={room?.host.username !== user}
-                    houseRule={HouseRuleDetails[HouseRule.interjections]}
-                    checked={room?.houseRules.generalRules.includes(
-                      HouseRule.interjections,
-                    )}
-                    onChange={(checked) =>
-                      changeHouseRule(HouseRule.interjections, checked)
-                    }
-                  />
+                  {Object.values(HouseRule).map((hr) => (
+                    <HouseRuleSwitch
+                      disable={room?.host.username !== user}
+                      houseRule={HouseRuleDetails[hr]}
+                      checked={room?.houseRules.generalRules.includes(hr)}
+                      onChange={(checked) => changeHouseRule(hr, checked)}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
