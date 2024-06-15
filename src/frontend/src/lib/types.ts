@@ -246,7 +246,14 @@ export interface IGameMessage {
 
 export interface IGameServerMessage {
   action: GameActionServer;
-  data?: string | number | ICard | ICard[] | string[] | IGamePrompt | number[];
+  data?:
+    | string
+    | number
+    | ICard
+    | ICard[]
+    | string[]
+    | IGamePrompt
+    | { [key: string]: number };
   user?: string;
 }
 
