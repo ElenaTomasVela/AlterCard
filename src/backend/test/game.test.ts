@@ -1465,6 +1465,9 @@ describe("House rules", async () => {
       ) as IGameServerMessage;
       const gameAfter = await Game.findById(game._id);
       expect(message.action).toBe(GameActionServer.swapHands);
+      expect(message.data[0]).toBe(game.players[2].hand.length);
+      expect(message.data[1]).toBe(game.players[0].hand.length - 1);
+      expect(message.data[2]).toBe(game.players[1].hand.length);
       expect(gameAfter?.players[0].hand).toEqual(game.players[2].hand);
       expect(gameAfter?.players[1].hand).toEqual(game.players[0].hand);
       expect(gameAfter?.players[2].hand).toEqual(game.players[1].hand);
@@ -1553,7 +1556,8 @@ describe("House rules", async () => {
     ) as IGameServerMessage;
     const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.swapHands);
-    expect(message.data).toEqual([0, 1]);
+    expect(message.data[0]).toBe(game.players[1].hand.length);
+    expect(message.data[1]).toBe(game.players[0].hand.length - 1);
     expect(gameAfter?.players[0].hand).toEqual(game.players[1].hand);
     expect(game.players[0].hand.slice(0, 7)).toEqual(
       gameAfter!.players[1].hand,

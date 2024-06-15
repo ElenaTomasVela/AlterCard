@@ -537,7 +537,10 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
             this.players[answer].hand = sourceHand;
             this.pushNotification({
               action: GameActionServer.swapHands,
-              data: [prompt.player, answer],
+              data: [prompt.player, answer].reduce(
+                (ac, i) => ({ ...ac, [i]: this.players[i].hand.length }),
+                {},
+              ),
             });
             break;
         }
@@ -616,6 +619,12 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
                 );
               this.pushNotification({
                 action: GameActionServer.swapHands,
+                data: [...Array(this.players.length).keys()]
+                  .filter((i) => this.players[i].hand.length > 0)
+                  .reduce(
+                    (ac, i) => ({ ...ac, [i]: this.players[i].hand.length }),
+                    {},
+                  ),
               });
             }
 
