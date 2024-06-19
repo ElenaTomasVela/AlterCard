@@ -12,8 +12,8 @@ export interface IPopulatedUser {
 
 export const tUser = new Elysia().model({
   user: t.Object({
-    username: t.String(),
-    password: t.String(),
+    username: t.String({ maxLength: 50 }),
+    password: t.String({ maxLength: 100 }),
   }),
 });
 
@@ -35,7 +35,9 @@ const UserSchema = new mongoose.Schema<IUser>({
 export const User = mongoose.model("User", UserSchema);
 
 export const encryptUser = async (user: IUser) => {
-  const encryptedPassword = await Bun.password.hash(user.password, { algorithm: "bcrypt" });
+  const encryptedPassword = await Bun.password.hash(user.password, {
+    algorithm: "bcrypt",
+  });
 
   const encryptedUser = new User({ ...user, password: encryptedPassword });
 

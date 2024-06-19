@@ -44,8 +44,26 @@ describe("Authentication", () => {
       expect(nNewUsers).toBe(nUsers + 1);
     });
 
-    //TODO: Parameterize this test
-    test("Incorrect sign-up", async () => {});
+    test.each([
+      {
+        username: "user1",
+        password: "somepassword",
+      },
+      {
+        username:
+          "testuserrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+        password: "wrongpassword",
+      },
+      {
+        username: "testuser1",
+        password:
+          "somepasswordddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      },
+    ])("Incorrect sign-up", async (user) => {
+      const response = await api.user.index.post(user);
+
+      expect(response.status).toBe(400);
+    });
 
     test("Password is encrypted", async () => {
       const user = {

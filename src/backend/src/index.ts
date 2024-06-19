@@ -92,7 +92,13 @@ export const app = new Elysia()
     return app
       .post(
         "/",
-        async ({ jwtauth, body, cookie: { authorization } }) => {
+        async ({ set, jwtauth, body, cookie: { authorization } }) => {
+          const existingUser = await User.findOne({ username: body.username });
+          if (existingUser != null) {
+            set.status = 400;
+            return "Username already exists";
+          }
+
           const user = await encryptUser(body);
           await user.save();
 
