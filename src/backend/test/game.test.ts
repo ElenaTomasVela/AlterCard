@@ -18,7 +18,7 @@ import {
   ICard,
 } from "../src/models/card";
 import { User } from "../src/models/user";
-import { WaitingRoom } from "../src/models/waitingRoom";
+import { IWaitingRoomMessage, WaitingRoom } from "../src/models/waitingRoom";
 import {
   waitForGameAction,
   waitForSocketConnection,
@@ -31,6 +31,8 @@ import {
   HouseRule,
   StackDrawHouseRule,
 } from "../src/models/houseRule";
+import { treaty } from "@elysiajs/eden";
+import { app } from "../src";
 
 let game: mongoose.Document & IGame;
 
@@ -70,6 +72,90 @@ beforeEach(async () => {
     headers: { Cookie: `authorization=${token3}` },
   });
   await waitForSocketConnection(session3);
+});
+
+const api = treaty(app);
+
+test("Authenticated game list", async () => {
+  const { data, status } = await api.game.index.get({
+    headers: { Cookie: `authorization=${token1}` },
+  });
+
+  const gameList = await Game.find();
+  expect(status).toBe(200);
+  expect(data?.length).toBe(gameList.length);
+});
+
+test("Unauthenticated game list", async () => {
+  const { status } = await api.game.index.get({});
+
+  expect(status).toBe(401);
+});
+
+test("Authenticated game details", async () => {
+  const response = await app.handle(
+    new Request(
+      `http://${app.server?.hostname}:${app.server?.port}/game/${game.id}`,
+      {
+        headers: { Cookie: `authorization=${token1}` },
+      },
+    ),
+  );
+  const gameObject = JSON.parse(await response.text());
+
+  expect(response.status).toBe(200);
+  expect(gameObject).toContainKeys(["players", "drawPile", "discardPile"]);
+});
+
+test("Unauthenticated game details", async () => {
+  const response = await app.handle(
+    new Request(
+      `http://${app.server?.hostname}:${app.server?.port}/game/${game.id}`,
+    ),
+  );
+
+  expect(response.status).toBe(401);
+});
+
+test("Disconnect when game deleted", async () => {
+  await Game.deleteMany({});
+  session1.send(
+    JSON.stringify(<IGameMessage>{
+      action: GameAction.viewHand,
+    }),
+  );
+
+  const closePromise = new Promise<void>((resolve) =>
+    session1.addEventListener("close", () => resolve()),
+  );
+
+  expect(closePromise).resolves.toBeUndefined();
+});
+
+test("View hand", async () => {
+  const dbCard = await Card.findOne({
+    color: CardColor.red,
+    symbol: CardSymbol.one,
+  });
+  game.players[0].hand = [dbCard!._id, dbCard!._id, dbCard!._id];
+  await game.save();
+
+  session1.send(
+    JSON.stringify(<IGameMessage>{
+      action: GameAction.viewHand,
+    }),
+  );
+
+  const message = JSON.parse(
+    await waitForSocketMessage(session1),
+  ) as IGameServerMessage;
+
+  expect(message.data).toBeArrayOfSize(3);
+  expect(message.data).toSatisfy((ar) =>
+    (ar as ICard[]).every(
+      (c) => c.color === CardColor.red && c.symbol === CardSymbol.one,
+    ),
+  );
 });
 
 describe("Play card", () => {
@@ -1363,6 +1449,7 @@ describe("House rules", async () => {
       game.houseRules.generalRules.push(HouseRule.redZeroOfDeath);
       game.players[0].hand = [dbHandCard!._id];
       game.players[1].hand = [dbRedZero!._id];
+      game.players[2].hand = [];
       await game.save();
 
       session1.send(
@@ -1395,6 +1482,7 @@ describe("House rules", async () => {
       game.houseRules.endCondition = EndConditionHouseRule.scoreAfterFirstWin;
       game.players[0].hand = [dbHandCard!._id];
       game.players[1].hand = [dbRedZero!._id];
+      game.players[2].hand = [dbHandCard!._id];
       await game.save();
 
       session1.send(

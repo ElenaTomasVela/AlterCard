@@ -243,39 +243,19 @@ export const app = new Elysia()
             switch (message.action) {
               case "start":
                 if (waitingRoom!.host.toString() != ws.data.user.id) {
-                  throw new Error(
-                    JSON.stringify(<IWaitingRoomServerMessage>{
-                      action: WaitingRoomServerAction.error,
-                      data: WaitingRoomError.notTheHost,
-                    }),
-                  );
+                  throw new Error(WaitingRoomError.notTheHost);
                 }
 
                 if (waitingRoom!.users.length < 2) {
-                  throw new Error(
-                    JSON.stringify(<IWaitingRoomServerMessage>{
-                      action: WaitingRoomServerAction.error,
-                      data: WaitingRoomError.notEnoughPlayers,
-                    }),
-                  );
+                  throw new Error(WaitingRoomError.notEnoughPlayers);
                 }
 
                 if (waitingRoom!.users.some((u) => !u.ready)) {
-                  throw new Error(
-                    JSON.stringify(<IWaitingRoomServerMessage>{
-                      action: WaitingRoomServerAction.error,
-                      data: WaitingRoomError.notReady,
-                    }),
-                  );
+                  throw new Error(WaitingRoomError.notReady);
                 }
 
                 if (!waitingRoom!.deck) {
-                  throw new Error(
-                    JSON.stringify(<IWaitingRoomServerMessage>{
-                      action: WaitingRoomServerAction.error,
-                      data: WaitingRoomError.noDeck,
-                    }),
-                  );
+                  throw new Error(WaitingRoomError.noDeck);
                 }
 
                 const game = await gameFromWaitingRoom(waitingRoom!);
@@ -291,19 +271,10 @@ export const app = new Elysia()
 
               case WaitingRoomAction.setRule:
                 if (waitingRoom!.host.toString() !== ws.data.user.id) {
-                  throw new Error(
-                    JSON.stringify(<IWaitingRoomServerMessage>{
-                      action: WaitingRoomServerAction.error,
-                      data: WaitingRoomError.notTheHost,
-                    }),
-                  );
+                  throw new Error(WaitingRoomError.notTheHost);
                 }
                 if (!message.data || typeof message.data !== "object")
-                  throw new ValidationError(
-                    "message.data",
-                    tHouseRuleConfig,
-                    message.data,
-                  );
+                  throw new Error(WaitingRoomError.invalidRule);
                 Object.assign(waitingRoom?.houseRules!, message.data);
                 await waitingRoom?.save();
 
@@ -318,24 +289,14 @@ export const app = new Elysia()
 
               case "addRule":
                 if (waitingRoom!.host.toString() !== ws.data.user.id) {
-                  throw new Error(
-                    JSON.stringify(<IWaitingRoomServerMessage>{
-                      action: WaitingRoomServerAction.error,
-                      data: WaitingRoomError.notTheHost,
-                    }),
-                  );
+                  throw new Error(WaitingRoomError.notTheHost);
                 }
                 if (
                   !message.data ||
                   typeof message.data !== "string" ||
                   !(Object.values(HouseRule) as string[]).includes(message.data)
                 )
-                  throw new ValidationError(
-                    "message.data",
-                    t.Enum(HouseRule),
-                    message.data,
-                  );
-                message.data;
+                  throw new Error(WaitingRoomError.invalidRule);
                 if (
                   !waitingRoom!.houseRules.generalRules.includes(
                     message.data as HouseRule,
@@ -346,7 +307,7 @@ export const app = new Elysia()
                   );
                   await waitingRoom!.save();
 
-                  ws.publish(
+                  serverInstance?.publish(
                     ws.data.params.id,
                     JSON.stringify(<IWaitingRoomServerMessage>{
                       action: WaitingRoomServerAction.addRule,
@@ -357,24 +318,16 @@ export const app = new Elysia()
                 break;
               case "removeRule":
                 if (waitingRoom!.host.toString() !== ws.data.user.id) {
-                  throw new Error(
-                    JSON.stringify(<IWaitingRoomServerMessage>{
-                      action: WaitingRoomServerAction.error,
-                      data: WaitingRoomError.notTheHost,
-                    }),
-                  );
+                  throw new Error(WaitingRoomError.notTheHost);
                 }
 
                 if (
                   !message.data ||
                   typeof message.data !== "string" ||
                   !(Object.values(HouseRule) as string[]).includes(message.data)
-                )
-                  throw new ValidationError(
-                    "message.data",
-                    t.Enum(HouseRule),
-                    message.data,
-                  );
+                ) {
+                  throw new Error(WaitingRoomError.invalidRule);
+                }
 
                 if (
                   waitingRoom!.houseRules.generalRules.includes(
@@ -385,7 +338,7 @@ export const app = new Elysia()
                     $pull: { "houseRules.generalRules": message.data },
                   });
 
-                  ws.publish(
+                  serverInstance?.publish(
                     ws.data.params.id,
                     JSON.stringify(<IWaitingRoomServerMessage>{
                       action: WaitingRoomServerAction.removeRule,
@@ -397,11 +350,7 @@ export const app = new Elysia()
 
               case "ready":
                 if (typeof message.data !== "boolean")
-                  throw new ValidationError(
-                    "message.data",
-                    t.Boolean(),
-                    message.data,
-                  );
+                  throw new Error(WaitingRoomError.invalidData);
                 await WaitingRoom.findOneAndUpdate(
                   {
                     _id: waitingRoom!._id,
@@ -420,14 +369,16 @@ export const app = new Elysia()
                 );
                 break;
               case WaitingRoomAction.setDeck:
-                if (!message.data || typeof message.data !== "string")
-                  throw new ValidationError(
-                    "message.data",
-                    t.String(),
-                    message.data,
-                  );
+                if (
+                  !message.data ||
+                  typeof message.data !== "string" ||
+                  !mongoose.isValidObjectId(message.data) ||
+                  !(await CardDeck.exists({ _id: message.data }))
+                )
+                  throw new Error(WaitingRoomError.invalidData);
 
                 waitingRoom!.deck = new mongoose.Types.ObjectId(message.data);
+
                 await waitingRoom!.save();
                 serverInstance?.publish(
                   ws.data.params.id,
@@ -442,7 +393,12 @@ export const app = new Elysia()
                 break;
             }
           } catch (e: any) {
-            ws.send(e.message);
+            ws.send(
+              JSON.stringify(<IWaitingRoomServerMessage>{
+                action: WaitingRoomServerAction.error,
+                data: e.message,
+              }),
+            );
           }
         },
       });
@@ -515,7 +471,8 @@ export const app = new Elysia()
           const game = await Game.findById(ws.data.params.id);
           if (!game) {
             ws.close();
-            throw new NotFoundError("Game not found");
+            ws.send("Game not found");
+            return;
           }
 
           if (game.finished) throw new Error(GameError.gameFinished);

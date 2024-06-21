@@ -43,6 +43,8 @@ export enum WaitingRoomError {
   notEnoughPlayers = "notEnoughPlayers",
   notReady = "notReady",
   noDeck = "noDeck",
+  invalidRule = "invalidRule",
+  invalidData = "invalidData",
 }
 
 export interface IWaitingRoomMessage {

@@ -24,7 +24,7 @@ import {
 import { Game } from "../src/models/game/schema";
 import { CardDeck } from "../src/models/card";
 import { users } from "./setup";
-import mongoose from "mongoose";
+import mongoose, { Document } from "mongoose";
 
 const api = treaty(app);
 
@@ -67,7 +67,7 @@ test("Unauthenticated room creation", async () => {
 });
 
 test("Authenticated room list", async () => {
-  const { response, status: loginStatus } = await api.user.login.post(users[1]);
+  const { response } = await api.user.login.post(users[1]);
   const token = getCookieFromResponse(response)["authorization"];
 
   const roomIds = (await WaitingRoom.find()).map((r) => r.id);
@@ -85,20 +85,26 @@ test("Authenticated room list", async () => {
   expect(fetchedRoomIds).toEqual(roomIds);
 });
 
-test.skip("Authenticated room get", async () => {
+test("Authenticated room get", async () => {
   const { response } = await api.user.login.post(users[1]);
   const token = getCookieFromResponse(response)["authorization"];
 
   const roomId = (await WaitingRoom.findOne())!.id;
-  const { data, status } = await api.room(roomId).get({
-    headers: {
-      Cookie: `authorization=${token}`,
-      contentType: "application/json",
-    },
-  });
+  // Eden Treaty seems to have problems url parameters in this case, so
+  // the fetching has to be done manually
+  const response2 = await app
+    .handle(
+      new Request(
+        `http://${app.server?.hostname}:${app.server?.port}/room/${roomId}`,
+        {
+          headers: { Cookie: `authorization=${token}` },
+        },
+      ),
+    )
+    .then((r) => r.text());
+  const waitingRoomObject = JSON.parse(response2) as IWaitingRoom & Document;
 
-  expect(status).toBe(200);
-  expect(data).toBe(roomId);
+  expect(waitingRoomObject._id).toBe(roomId);
 });
 
 test("Authenticated room join", async () => {
@@ -192,6 +198,28 @@ test("Player leave notified", async () => {
   );
 });
 
+test("Authenticated deck listing", async () => {
+  const { response } = await api.user.login.post(users[1]);
+  const token = getCookieFromResponse(response)["authorization"];
+
+  const { data, status } = await api.deck.index.get({
+    headers: {
+      Cookie: `authorization=${token}`,
+      contentType: "application/json",
+    },
+  });
+
+  const decks = await CardDeck.find();
+  expect(status).toBe(200);
+  expect(data?.length).toBe(decks.length);
+});
+
+test("Unauthenticated deck listing", async () => {
+  const { status } = await api.deck.index.get({});
+
+  expect(status).toBe(401);
+});
+
 describe("Connected", () => {
   let waitingRoom: IWaitingRoom & mongoose.Document;
   let token1;
@@ -235,6 +263,19 @@ describe("Connected", () => {
     expect(message.user).toBe(users[1].username);
     expect(readyAfter).toBe(!readyBefore);
   });
+  test("Invalid player ready message", async () => {
+    session1.send(JSON.stringify({ action: "ready", data: "this is invalid" }));
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IWaitingRoomServerMessage;
+
+    const waitingRoomAfter = await WaitingRoom.findById(waitingRoom!.id);
+    const readyBefore = waitingRoom!.users[0].ready;
+    const readyAfter = waitingRoomAfter!.users[0].ready;
+
+    expect(message.action).toBe(WaitingRoomServerAction.error);
+    expect(readyAfter).toBe(readyBefore);
+  });
 
   describe("House rules", () => {
     test("Add general house rule", async () => {
@@ -253,8 +294,94 @@ describe("Connected", () => {
         waitingRoom!.houseRules.generalRules.length + 1,
       );
     });
+    test("General house rule, not host", async () => {
+      session2.send(
+        JSON.stringify({ action: "addRule", data: HouseRule.interjections }),
+      );
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IWaitingRoomServerMessage;
 
-    test("Add draw house rule", async () => {
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom!.id);
+
+      expect(message.action).toBe(WaitingRoomServerAction.error);
+      expect(message.data).toBe(WaitingRoomError.notTheHost);
+      expect(waitingRoomAfter!.houseRules.generalRules.length).toBe(
+        waitingRoom!.houseRules.generalRules.length,
+      );
+    });
+    test("Add invalid house rule", async () => {
+      session1.send(
+        JSON.stringify({ action: "addRule", data: "An invalid rule" }),
+      );
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IWaitingRoomServerMessage;
+
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom!.id);
+
+      expect(message.action).toBe(WaitingRoomServerAction.error);
+      expect(message.data).toBe(WaitingRoomError.invalidRule);
+      expect(waitingRoomAfter!.houseRules.generalRules.length).toBe(
+        waitingRoom!.houseRules.generalRules.length,
+      );
+    });
+    test("Remove general house rule", async () => {
+      waitingRoom.houseRules.generalRules = [HouseRule.interjections];
+      await waitingRoom.save();
+
+      session1.send(
+        JSON.stringify({ action: "removeRule", data: HouseRule.interjections }),
+      );
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IWaitingRoomServerMessage;
+
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom!.id);
+
+      expect(message.action).toBe(WaitingRoomServerAction.removeRule);
+      expect(message.data).toBe(HouseRule.interjections);
+      expect(waitingRoomAfter!.houseRules.generalRules.length).toBe(
+        waitingRoom!.houseRules.generalRules.length - 1,
+      );
+    });
+    test("Remove invalid house rule", async () => {
+      session1.send(
+        JSON.stringify({ action: "removeRule", data: "An invalid rule" }),
+      );
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IWaitingRoomServerMessage;
+
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom!.id);
+
+      expect(message.action).toBe(WaitingRoomServerAction.error);
+      expect(message.data).toBe(WaitingRoomError.invalidRule);
+      expect(waitingRoomAfter!.houseRules.generalRules.length).toBe(
+        waitingRoom!.houseRules.generalRules.length,
+      );
+    });
+    test("Remove general house rule, not host", async () => {
+      waitingRoom.houseRules.generalRules = [HouseRule.interjections];
+      await waitingRoom.save();
+
+      session2.send(
+        JSON.stringify({ action: "removeRule", data: HouseRule.interjections }),
+      );
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IWaitingRoomServerMessage;
+
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom!.id);
+
+      expect(message.action).toBe(WaitingRoomServerAction.error);
+      expect(message.data).toBe(WaitingRoomError.notTheHost);
+      expect(waitingRoomAfter!.houseRules.generalRules.length).toBe(
+        waitingRoom!.houseRules.generalRules.length,
+      );
+    });
+
+    test("Add specific house rule", async () => {
       const houseRuleConfig = <IHouseRuleConfig>{
         draw: DrawHouseRule.drawUntilPlay,
       };
@@ -276,6 +403,82 @@ describe("Connected", () => {
       expect(waitingRoomAfter!.houseRules.draw).toBe(
         DrawHouseRule.drawUntilPlay,
       );
+    });
+
+    test("Add specific house rule, not host", async () => {
+      const houseRuleConfig = <IHouseRuleConfig>{
+        draw: DrawHouseRule.drawUntilPlay,
+      };
+      session2.send(
+        JSON.stringify(<IWaitingRoomMessage>{
+          action: WaitingRoomAction.setRule,
+          data: houseRuleConfig,
+        }),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session2),
+      ) as IWaitingRoomServerMessage;
+
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom!.id);
+
+      expect(message.action).toBe(WaitingRoomServerAction.error);
+      expect(message.data).toBe(WaitingRoomError.notTheHost);
+      expect(waitingRoomAfter!.houseRules.draw).toBeUndefined();
+    });
+  });
+
+  describe("Selecting deck", () => {
+    test("Correct selection", async () => {
+      const deck = await CardDeck.findOne();
+      session1.send(
+        JSON.stringify(<IWaitingRoomMessage>{
+          action: WaitingRoomAction.setDeck,
+          data: deck!.id,
+        }),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IWaitingRoomServerMessage;
+
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom._id);
+      expect(message.action).toBe(WaitingRoomServerAction.setDeck);
+      expect(message.data).toBe(deck!.id);
+    });
+    test("Invalid deck", async () => {
+      session1.send(
+        JSON.stringify(<IWaitingRoomMessage>{
+          action: WaitingRoomAction.setDeck,
+          data: "invalid",
+        }),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IWaitingRoomServerMessage;
+
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom._id);
+      expect(message.action).toBe(WaitingRoomServerAction.error);
+      expect(message.data).toBe(WaitingRoomError.invalidData);
+      expect(waitingRoomAfter!.deck).toBeUndefined();
+    });
+    test("Deck does not exist", async () => {
+      session1.send(
+        JSON.stringify(<IWaitingRoomMessage>{
+          action: WaitingRoomAction.setDeck,
+          data: "55332820baf6ae736adf6c80",
+        }),
+      );
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IWaitingRoomServerMessage;
+
+      const waitingRoomAfter = await WaitingRoom.findById(waitingRoom._id);
+      expect(message.action).toBe(WaitingRoomServerAction.error);
+      expect(message.data).toBe(WaitingRoomError.invalidData);
+      expect(waitingRoomAfter!.deck).toBeUndefined();
     });
   });
 
@@ -357,6 +560,33 @@ describe("Connected", () => {
     ) as IWaitingRoomServerMessage;
 
     expect(message.data).toBe(WaitingRoomError.notEnoughPlayers);
+  });
+  test("Incorrect game start, no deck", async () => {
+    session1.send(
+      JSON.stringify({
+        action: WaitingRoomAction.ready,
+        data: true,
+      } as IWaitingRoomMessage),
+    );
+    await waitForSocketMessage(session1);
+    session2.send(
+      JSON.stringify({
+        action: WaitingRoomAction.ready,
+        data: true,
+      } as IWaitingRoomMessage),
+    );
+    await waitForSocketMessage(session1);
+
+    session1.send(
+      JSON.stringify({
+        action: WaitingRoomAction.start,
+      } as IWaitingRoomMessage),
+    );
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IWaitingRoomServerMessage;
+
+    expect(message.data).toBe(WaitingRoomError.noDeck);
   });
   test("Incorrect game start, wrong host", async () => {
     session1.send(
