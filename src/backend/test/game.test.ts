@@ -40,8 +40,8 @@ let session1: WebSocket;
 let session2: WebSocket;
 let session3: WebSocket;
 beforeEach(async () => {
-  WaitingRoom.deleteMany({});
-  Game.deleteMany({});
+  await WaitingRoom.deleteMany({});
+  await Game.deleteMany({});
 
   const dbUsers = await User.find();
   const deck = await CardDeck.findOne();
@@ -75,7 +75,6 @@ beforeEach(async () => {
 });
 
 const api = treaty(app);
-
 test("Authenticated game list", async () => {
   const { data, status } = await api.game.index.get({
     headers: { Cookie: `authorization=${token1}` },
@@ -228,6 +227,64 @@ describe("Play card", () => {
     expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
   });
 
+  test("Invalid card", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.blue,
+    });
+    game.players[0].hand.push(dbHandCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: "this is not a card",
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(gameAfter!.discardPile.length).toBe(game.discardPile.length);
+    expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
+  });
+
+  test("Card index not in hand", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.blue,
+    });
+    game.players[0].hand.push(dbHandCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 90,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(gameAfter!.discardPile.length).toBe(game.discardPile.length);
+    expect(gameAfter!.players[0].hand.length).toBe(game.players[0].hand.length);
+  });
+
   test("Out of turn", async () => {
     const dbHandCard = await Card.findOne({
       symbol: CardSymbol.one,
@@ -279,6 +336,26 @@ describe("Draw card", () => {
     expect(gameAfter!.players[0].hand.length).toBe(
       game.players[0].hand.length + 1,
     );
+  });
+
+  test("Restock deck", async () => {
+    game.discardPile.push(...game.drawPile.splice(0));
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.drawCard,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.refreshDeck);
+    expect(message.data).toBe(gameAfter!.drawPile.length + 1);
+    expect(gameAfter!.discardPile.length).toBe(1);
   });
 });
 
@@ -476,6 +553,51 @@ describe("Prompts", () => {
       expect(message.action).toBe(GameActionServer.changeColor);
       expect(message.data).toBe(CardColor.red);
       expect(gameAfter?.forcedColor).toBe(CardColor.red);
+    });
+
+    test("Remove forced color after play", async () => {
+      const dbPlayableCard = await Card.findOne({
+        symbol: CardSymbol.changeColor,
+        color: CardColor.wild,
+      });
+      const dbRedCard = await Card.findOne({
+        color: CardColor.red,
+      });
+      game.players[0].hand.unshift(dbPlayableCard!._id);
+      game.players[1].hand.unshift(dbRedCard!._id);
+      await game.save();
+
+      session1.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 0,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session1),
+        await waitForSocketMessage(session1),
+        session1.send(
+          JSON.stringify({
+            action: GameAction.answerPrompt,
+            data: CardColor.red,
+          } as IGameMessage),
+        );
+      await waitForSocketMessage(session1);
+      await waitForSocketMessage(session1);
+      session2.send(
+        JSON.stringify({
+          action: GameAction.playCard,
+          data: 0,
+        } as IGameMessage),
+      );
+      await waitForSocketMessage(session1);
+
+      const message = JSON.parse(
+        await waitForSocketMessage(session1),
+      ) as IGameServerMessage;
+      const gameAfter = await Game.findById(game._id);
+      expect(message.action).toBe(GameActionServer.changeColor);
+      expect(message.data).toBeUndefined();
+      expect(gameAfter?.forcedColor).toBeUndefined();
     });
 
     test("Invalid action", async () => {
@@ -820,7 +942,6 @@ describe("Announce last card", () => {
     session1.send(
       JSON.stringify({
         action: GameAction.lastCard,
-        data: 0,
       } as IGameMessage),
     );
 
@@ -830,6 +951,36 @@ describe("Announce last card", () => {
     const gameAfter = await Game.findById(game._id);
     expect(message.action).toBe(GameActionServer.lastCard);
     expect(gameAfter?.players[0].announcingLastCard).toBe(true);
+  });
+  test("Expire announcement after drawing card", async () => {
+    const dbPlayableCard = await Card.findOne({
+      color: CardColor.red,
+      symbol: CardSymbol.one,
+    });
+    game.players[0].hand = [dbPlayableCard!._id, dbPlayableCard!._id];
+    game.discardPile = [dbPlayableCard!._id];
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.lastCard,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+    session1.send(
+      JSON.stringify({
+        action: GameAction.drawCard,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.lastCard);
+    expect(message.data).toBe(false);
+    expect(gameAfter?.players[0].announcingLastCard).toBe(false);
   });
 
   test("Too many cards", async () => {
