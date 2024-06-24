@@ -952,6 +952,36 @@ describe("Announce last card", () => {
     expect(message.action).toBe(GameActionServer.lastCard);
     expect(gameAfter?.players[0].announcingLastCard).toBe(true);
   });
+  test("Correct announcement after playing card", async () => {
+    const dbPlayableCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    game.players[0].hand = [dbPlayableCard!._id, dbPlayableCard!._id];
+    game.discardPile.push(dbPlayableCard!._id);
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session1);
+    await waitForSocketMessage(session1);
+    session1.send(
+      JSON.stringify({
+        action: GameAction.lastCard,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.lastCard);
+    expect(gameAfter?.players[0].announcingLastCard).toBe(true);
+  });
   test("Expire announcement after drawing card", async () => {
     const dbPlayableCard = await Card.findOne({
       color: CardColor.red,
@@ -1036,6 +1066,51 @@ describe("Announce last card", () => {
     expect(gameAfter?.players[0].hand.length).toBe(
       game.players[0].hand.length + 1,
     );
+  });
+  test("Incorrect accusation, too late", async () => {
+    const dbHandCard = await Card.findOne({
+      symbol: CardSymbol.one,
+      color: CardColor.red,
+    });
+    const dbDiscardCard = await Card.findOne({
+      symbol: CardSymbol.zero,
+      color: CardColor.red,
+    });
+    game.players[0].hand = [dbHandCard!._id, dbHandCard!._id];
+    game.players[1].hand.unshift(dbHandCard!._id);
+    game.discardPile.push(dbDiscardCard!._id);
+    await game.save();
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session2);
+    await waitForSocketMessage(session2);
+    session2.send(
+      JSON.stringify({
+        action: GameAction.playCard,
+        data: 0,
+      } as IGameMessage),
+    );
+    await waitForSocketMessage(session2);
+    await waitForSocketMessage(session2);
+    session2.send(
+      JSON.stringify({
+        action: GameAction.accuse,
+        data: game.players[0].user.toString(),
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session2),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.conditionsNotMet);
+    expect(gameAfter?.players[0].hand.length).toBe(1);
   });
 });
 

@@ -131,11 +131,12 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
         const player = this.players[playerIndex];
 
         return (
-          player &&
-          !player.announcingLastCard &&
-          player.hand.length == 2 &&
-          this.currentPlayer === playerIndex &&
-          player.hand.some((c) => this.isCardPlayable(c))
+          (player &&
+            !player.announcingLastCard &&
+            player.hand.length == 2 &&
+            this.currentPlayer === playerIndex &&
+            player.hand.some((c) => this.isCardPlayable(c))) ||
+          player.accusable
         );
       },
 
