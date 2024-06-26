@@ -11,7 +11,7 @@ export function Draw2Icon({ className }: { className?: string }) {
       <g transform="translate(-437.15 -200.38)">
         <g
           transform="matrix(.62664 0 0 .62664 47.337 153.54)"
-          stroke-width="1.5958"
+          strokeWidth="1.5958"
         >
           <path
             transform="matrix(-1.3529 0 0 -1.3529 300.07 1658.7)"
@@ -24,7 +24,7 @@ export function Draw2Icon({ className }: { className?: string }) {
         </g>
         <g
           transform="matrix(.53826 0 0 .53754 191.25 -9.2858)"
-          stroke-width="1.8591"
+          strokeWidth="1.8591"
         >
           <path
             transform="translate(4.2426 2.4749)"
@@ -39,14 +39,14 @@ export function Draw2Icon({ className }: { className?: string }) {
             stroke="#fff"
             stroke-linecap="round"
             stroke-linejoin="round"
-            stroke-width="9.2954"
+            strokeWidth="9.2954"
           />
           <path
             d="m546.44 424.23 36.72-7.4964c2.8786-.58767 5.6691 1.2566 6.2568 4.1352l13.441 65.836c.58766 2.8786-1.2566 5.6691-4.1352 6.2568l-36.72 7.4964c-2.8786.58767-5.6691-1.2566-6.2568-4.1352l-13.441-65.836c-.58766-2.8786 1.2566-5.6691 4.1352-6.2568z"
             stroke="#fff"
             stroke-linecap="round"
             stroke-linejoin="round"
-            stroke-width="9.2954"
+            strokeWidth="9.2954"
           />
         </g>
       </g>
@@ -67,7 +67,7 @@ export function Draw4Icon({ className }: { className?: string }) {
       <g transform="translate(-283.44 -189.93)">
         <g
           transform="matrix(.62664 0 0 .62664 47.337 153.54)"
-          stroke-width="1.5958"
+          strokeWidth="1.5958"
         >
           <path
             transform="matrix(-1.3529 0 0 -1.3529 300.07 1658.7)"
@@ -82,7 +82,7 @@ export function Draw4Icon({ className }: { className?: string }) {
           transform="matrix(.50009 0 0 .51123 6.8042 -269)"
           stroke="#fff"
           stroke-linecap="round"
-          stroke-width="5.98"
+          strokeWidth="5.98"
         >
           <path
             d="m637.06 1014.8c-22.741 6.9685-34.822 29.15-41.078 57.533-2.2223-13.629-3.1682-27.749-1.7034-42.299-8.2068 26.625-1.9714 37.363-1.9985 54.99-11.609-18.798-20.181-24.466-18.97-60.934-5.5963 5.3621-3.233 20.804-2.3293 31.289-26.727-30.198-14.276-80.118 13.539-100.34z"
@@ -130,7 +130,7 @@ export function ReverseTurnIcon({ className }: { className?: string }) {
       <g transform="translate(-636.79 -213.2)">
         <g
           transform="matrix(.62664 0 0 .62664 47.337 153.54)"
-          stroke-width="1.5958"
+          strokeWidth="1.5958"
         >
           <path
             transform="matrix(-1.3529 0 0 -1.3529 300.07 1658.7)"
@@ -156,7 +156,7 @@ export function SkipTurnIcon({ className }: { className?: string }) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <g transform="translate(-108.96 -215.64)" stroke-width="1.5958">
+      <g transform="translate(-108.96 -215.64)" strokeWidth="1.5958">
         <g transform="matrix(.62664 0 0 .62664 39.469 -195.46)">
           <path
             transform="rotate(45)"
@@ -197,14 +197,14 @@ export function ChangeColorIcon({ className }: { className?: string }) {
         stroke="#fff"
         stroke-linecap="round"
         stroke-miterlimit="12.4"
-        stroke-width="3.0236"
+        strokeWidth="3.0236"
       />
       <g
         transform="translate(0 .26409)"
         stroke="#fff"
         stroke-linecap="round"
         stroke-miterlimit="12.4"
-        stroke-width="3.0236"
+        strokeWidth="3.0236"
       >
         <circle cx="47.028" cy="50.575" r="13.048" fill="#3fd56b" />
         <circle cx="17.909" cy="50.575" r="13.048" fill="#ffd35b" />
@@ -217,7 +217,7 @@ export function ChangeColorIcon({ className }: { className?: string }) {
         stroke="#fff"
         stroke-linecap="round"
         stroke-miterlimit="12.4"
-        stroke-width="3.0236"
+        strokeWidth="3.0236"
       />
     </svg>
   );
