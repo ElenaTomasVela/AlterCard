@@ -75,7 +75,7 @@ const HouseRuleSwitch = ({
     <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="grid grid-cols-subgrid col-span-2">
+          <span className="col-span-2 flex justify-between items-center gap-3">
             <label
               className={`${!disable && "cursor-pointer"} select-none`}
               htmlFor={houseRule.id}
@@ -83,7 +83,7 @@ const HouseRuleSwitch = ({
               {houseRule.name}
             </label>
             <Switch
-              className="shadow-inner"
+              className="shadow-inner my-auto"
               id={houseRule.id}
               disabled={disable}
               checked={checked}
@@ -365,6 +365,13 @@ export const WaitingRoom = () => {
           setHouseRuleConfig(msgObject.data);
           break;
         case WaitingRoomServerAction.newHost:
+          if (msgObject.data === null || typeof msgObject.data !== "string")
+            return;
+          setRoom((r) => {
+            if (!r) return;
+            return { ...r, host: { username: msgObject.data as string } };
+          });
+          break;
         case WaitingRoomServerAction.error:
         default:
           break;
@@ -524,14 +531,16 @@ export const WaitingRoom = () => {
                       with 25 cards or more are eliminated from the game.
                     </p>
                   </HouseRuleSelect>
-                  {Object.values(HouseRule).map((hr) => (
-                    <HouseRuleSwitch
-                      disable={room?.host.username !== user}
-                      houseRule={HouseRuleDetails[hr]}
-                      checked={room?.houseRules.generalRules.includes(hr)}
-                      onChange={(checked) => changeHouseRule(hr, checked)}
-                    />
-                  ))}
+                  <div className="col-span-2 w-full grid-cols-4 grid gap-3">
+                    {Object.values(HouseRule).map((hr) => (
+                      <HouseRuleSwitch
+                        disable={room?.host.username !== user}
+                        houseRule={HouseRuleDetails[hr]}
+                        checked={room?.houseRules.generalRules.includes(hr)}
+                        onChange={(checked) => changeHouseRule(hr, checked)}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
