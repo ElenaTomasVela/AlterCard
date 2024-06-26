@@ -2,6 +2,7 @@ import { H1, H2, H3 } from "@/components/Headings";
 import HightlightCard from "@/components/HightlightCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { IGame } from "@/lib/types";
 import { api } from "@/lib/utils";
 import { Icon } from "@iconify/react/dist/iconify.js";
@@ -56,11 +57,9 @@ export function RoomListing() {
           <Button className="md:w-1/3" onClick={createRoom}>
             New Game
           </Button>
-          <form className="flex lg:w-1/3">
+          <form className="flex lg:w-1/3 w-1/2">
             <Input className="rounded-none rounded-l-lg border-2" />
-            <Button className="rounded-none rounded-r-lg">
-              Join with code
-            </Button>
+            <Button className="rounded-none rounded-r-lg">Join</Button>
           </form>
         </div>
         <div>
@@ -77,6 +76,11 @@ export function RoomListing() {
               </Link>
             ))}
           </div>
+          {games.length == 0 && (
+            <div className="text-center w-full text-gray-500 border border-gray-200 rounded-lg p-5">
+              You have no ongoing games.
+            </div>
+          )}
         </div>
         <div>
           <H2>Open rooms</H2>
@@ -86,9 +90,9 @@ export function RoomListing() {
             ))}
           </div>
           {rooms.length == 0 && (
-            <H3 className="text-center w-full mt-5 text-gray-500">
+            <div className="text-center w-full text-gray-500 border border-gray-200 rounded-lg p-5">
               There are no currently open rooms.
-            </H3>
+            </div>
           )}
         </div>
       </div>
