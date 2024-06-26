@@ -11,7 +11,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuItem,
-} from "@radix-ui/react-dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 
 export function PlayableCard({
@@ -188,15 +188,20 @@ export function PromptDisplay({
               game.forcedColor,
             ) && (
               <Button
-                variant="outline"
                 onClick={() => {
                   onAnswer(true);
                 }}
+                size="lg"
               >
                 Play
               </Button>
             )}
-            <Button onClick={() => onAnswer(false)} variant="outline" size="lg">
+            <Button
+              onClick={() => onAnswer(false)}
+              size="lg"
+              className="bg-white border-primary/50"
+              variant="outline"
+            >
               Keep in hand
             </Button>
           </span>

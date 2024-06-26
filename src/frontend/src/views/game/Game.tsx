@@ -422,7 +422,7 @@ export const Game = () => {
                   })}
                 </div>
                 <Carousel
-                  className="w-svw overflow-visible lg:hidden z-10"
+                  className="w-svw lg:hidden z-10"
                   opts={{ dragFree: true }}
                 >
                   <CarouselContent className="py-2">
