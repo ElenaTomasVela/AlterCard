@@ -61,9 +61,9 @@ export const MobileHeader = () => {
     navigate("/");
   };
   return (
-    <nav className="flex items-center justify-between border-b-2 py-4 px-5 sticky top-0 bg-white lg:hidden">
+    <nav className="flex items-center justify-between border-b-2 py-2 px-5 sticky top-0 bg-white lg:hidden">
       <NavLink to="/" className="flex gap-2 items-center">
-        <Logo className="m-0 w-12" /> AlterCard
+        <Logo className="m-0 w-8" /> AlterCard
       </NavLink>
       <Sheet>
         <SheetTrigger asChild>
