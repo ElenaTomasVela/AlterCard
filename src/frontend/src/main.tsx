@@ -39,6 +39,7 @@ const router = createBrowserRouter([
           {
             path: ":roomId",
             element: <WaitingRoom />,
+            errorElement: <NotFoundPage />,
           },
         ],
       },
@@ -49,6 +50,7 @@ const router = createBrowserRouter([
           {
             path: ":gameId",
             element: <Game />,
+            errorElement: <NotFoundPage />,
           },
         ],
       },
