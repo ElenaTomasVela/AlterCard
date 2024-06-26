@@ -450,7 +450,7 @@ export const WaitingRoom = () => {
     <>
       <div className="flex flex-col gap-5">
         <H1>Waiting Room</H1>
-        <div className="flex gap-10 justify-between flex-wrap">
+        <div className="lg:flex gap-10 justify-between flex-wrap">
           <div className="flex-1">
             <H2 className="font-normal">Current Players</H2>
             <div className="flex flex-col p-2">
@@ -458,7 +458,7 @@ export const WaitingRoom = () => {
                 room.users.map((p, index) => <Player player={p} key={index} />)}
             </div>
           </div>
-          <div className="flex justify-between flex-wrap flex-1 basis-2/5 gap-10">
+          <div className="lg:flex justify-between flex-wrap flex-1 basis-2/5 gap-5">
             <div className="">
               <H2 className="font-normal">Choose your House Rules</H2>
               <div className="grid gap-3 md:px-5 py-3 grid-cols-2 w-full">
@@ -531,9 +531,11 @@ export const WaitingRoom = () => {
                       with 25 cards or more are eliminated from the game.
                     </p>
                   </HouseRuleSelect>
+                  <Separator className="col-span-2 my-4" />
                   <div className="col-span-2 w-full grid-cols-4 grid gap-3">
                     {Object.values(HouseRule).map((hr) => (
                       <HouseRuleSwitch
+                        key={hr as string}
                         disable={room?.host.username !== user}
                         houseRule={HouseRuleDetails[hr]}
                         checked={room?.houseRules.generalRules.includes(hr)}
