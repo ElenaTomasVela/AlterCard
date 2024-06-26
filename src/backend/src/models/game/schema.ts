@@ -83,7 +83,7 @@ const GameSchema = new mongoose.Schema<IGame, GameModel, IGameMethods>(
     players: {
       type: [PlayerSchema],
       validate: {
-        validator: (v: Array<any>) => v.length >= 2 && v.length <= 30,
+        validator: (v: Array<any>) => v.length >= 2 && v.length <= 15,
         message: (props: mongoose.ValidatorProps) =>
           `Player count should be between 2 and 30, is ${props.value.length}`,
       },
