@@ -1030,6 +1030,34 @@ describe("Announce last card", () => {
     expect(gameAfter?.players[0].announcingLastCard).toBe(false);
   });
 
+  test("No playable cards", async () => {
+    const discardCard = await Card.findOne({
+      color: CardColor.blue,
+      symbol: CardSymbol.six,
+    });
+    const handCard = await Card.findOne({
+      color: CardColor.blue,
+      symbol: CardSymbol.six,
+    });
+    game.players[0].hand = [handCard!._id, handCard!._id];
+    game.discardPile.push(discardCard!._id);
+
+    session1.send(
+      JSON.stringify({
+        action: GameAction.lastCard,
+        data: 0,
+      } as IGameMessage),
+    );
+
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IGameServerMessage;
+    const gameAfter = await Game.findById(game._id);
+    expect(message.action).toBe(GameActionServer.error);
+    expect(message.data).toBe(GameError.conditionsNotMet);
+    expect(gameAfter?.players[0].announcingLastCard).toBe(false);
+  });
+
   test("Correct no announcement accusation", async () => {
     const dbHandCard = await Card.findOne({
       symbol: CardSymbol.one,
