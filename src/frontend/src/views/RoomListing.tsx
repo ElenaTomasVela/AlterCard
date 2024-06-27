@@ -30,18 +30,24 @@ const RoomCard = ({
 export function RoomListing() {
   const [rooms, setRooms] = useState([]);
   const [games, setGames] = useState([]);
+  const [roomError, setRoomError] = useState();
+  const [gamesError, setGamesError] = useState();
 
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchedRooms = api.get("/room");
     const fetchedGames = api.get("/game");
-    fetchedRooms.then((res) => {
-      setRooms(res.data);
-    });
-    fetchedGames.then((res) => {
-      setGames(res.data);
-    });
+    fetchedRooms
+      .then((res) => {
+        setRooms(res.data);
+      })
+      .catch((e) => setRoomError(e.message));
+    fetchedGames
+      .then((res) => {
+        setGames(res.data);
+      })
+      .catch((e) => setGamesError(e.message));
   }, []);
 
   const createRoom = () => {
@@ -76,9 +82,16 @@ export function RoomListing() {
               </Link>
             ))}
           </div>
-          {games.length == 0 && (
-            <div className="text-center w-full text-gray-500 border border-gray-200 rounded-lg p-5">
-              You have no ongoing games.
+          {!roomError ? (
+            games.length == 0 && (
+              <div className="text-center w-full text-gray-500 border border-gray-200 rounded-lg p-5">
+                You have no ongoing games.
+              </div>
+            )
+          ) : (
+            <div className="text-center w-full text-red-600 bg-red-100/50 border border-red-400 rounded-lg p-5">
+              <div className="font-bold text-lg">Oops, there was an error!</div>
+              <span>{gamesError}</span>
             </div>
           )}
         </div>
@@ -89,9 +102,16 @@ export function RoomListing() {
               <RoomCard key={index} room={room} />
             ))}
           </div>
-          {rooms.length == 0 && (
-            <div className="text-center w-full text-gray-500 border border-gray-200 rounded-lg p-5">
-              There are no currently open rooms.
+          {!roomError ? (
+            rooms.length == 0 && (
+              <div className="text-center w-full text-gray-500 border border-gray-200 rounded-lg p-5">
+                There are no currently open rooms.
+              </div>
+            )
+          ) : (
+            <div className="text-center w-full text-red-600 bg-red-100/50 border border-red-400 rounded-lg p-5">
+              <div className="font-bold text-lg">Oops, there was an error!</div>
+              <span>{gamesError}</span>
             </div>
           )}
         </div>
