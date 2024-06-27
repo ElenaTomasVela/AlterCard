@@ -4,7 +4,13 @@ import { useContext } from "react";
 import { AuthContext, AuthContextType } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import Logo from "./icons/Logo";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "./ui/sheet";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "./ui/sheet";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { Separator } from "./ui/separator";
 
@@ -76,7 +82,9 @@ export const MobileHeader = () => {
             <Logo className="m-0 w-12" /> AlterCard
           </SheetTitle>
           <Separator />
-          <NavLink to="/rooms">Join a Game</NavLink>
+          <NavLink to="/rooms">
+            <SheetClose>Join a Game</SheetClose>
+          </NavLink>
           <Separator />
 
           {user ? (
@@ -88,8 +96,12 @@ export const MobileHeader = () => {
             </>
           ) : (
             <>
-              <NavLink to="/signup">Sign Up</NavLink>
-              <NavLink to="/login">Log In</NavLink>
+              <NavLink to="/signup">
+                <SheetClose>Sign Up</SheetClose>
+              </NavLink>
+              <NavLink to="/login">
+                <SheetClose>Log in</SheetClose>
+              </NavLink>
             </>
           )}
         </SheetContent>
