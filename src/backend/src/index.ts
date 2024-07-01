@@ -250,6 +250,10 @@ export const app = new Elysia()
                   throw new Error(WaitingRoomError.notEnoughPlayers);
                 }
 
+                if (waitingRoom!.users.length > 15) {
+                  throw new Error(WaitingRoomError.tooManyPlayers);
+                }
+
                 if (waitingRoom!.users.some((u) => !u.ready)) {
                   throw new Error(WaitingRoomError.notReady);
                 }
