@@ -561,6 +561,30 @@ describe("Connected", () => {
 
     expect(message.data).toBe(WaitingRoomError.notEnoughPlayers);
   });
+  test("Incorrect game start, too many players", async () => {
+    for (let index = 0; index < 15; index++) {
+      const { response } = await api.user.index.post({
+        username: "fillerUser" + index,
+        password: "somepassword",
+      });
+      const token = getCookieFromResponse(response)["authorization"];
+      new WebSocket(`ws://localhost:3000/room/${waitingRoom._id}/ws`, {
+        // @ts-expect-error
+        headers: { Cookie: `authorization=${token}` },
+      });
+    }
+
+    session1.send(
+      JSON.stringify({
+        action: WaitingRoomAction.start,
+      } as IWaitingRoomMessage),
+    );
+    const message = JSON.parse(
+      await waitForSocketMessage(session1),
+    ) as IWaitingRoomServerMessage;
+
+    expect(message.data).toBe(WaitingRoomError.tooManyPlayers);
+  });
   test("Incorrect game start, no deck", async () => {
     session1.send(
       JSON.stringify({
