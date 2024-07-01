@@ -142,8 +142,8 @@ export const app = new Elysia()
   .resolve(async ({ jwtauth, cookie: { authorization } }) => {
     const user = await jwtauth.verify(authorization.value);
     if (!user) throw new AuthError("Unauthorized");
-    const dbUser = User.findById(user.id);
-    if (!dbUser) throw new NotFoundError("User not found");
+    const dbUser = await User.findById(user.id);
+    if (!dbUser) throw new AuthError("Unauthorized");
 
     return { user };
   })
