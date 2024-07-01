@@ -37,6 +37,7 @@ import {
 import { Command, CommandItem } from "@/components/ui/command";
 import { CommandList } from "cmdk";
 import { Separator } from "@/components/ui/separator";
+import ClipboardButton from "@/components/ui/clipboard";
 
 const Player = ({
   player,
@@ -453,7 +454,10 @@ export const WaitingRoom = () => {
   return (
     <>
       <div className="flex flex-col gap-5">
-        <H1>Waiting Room</H1>
+        <div className="flex gap-5 items-center">
+          <H1>Waiting Room</H1>
+          <ClipboardButton toCopy={location.href} />
+        </div>
         <div className="lg:flex gap-10 justify-between flex-wrap">
           <div className="flex-1">
             <H2 className="font-normal">Current Players</H2>
