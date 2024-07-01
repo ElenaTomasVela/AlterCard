@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 import { CardColor, ICard } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
@@ -11,6 +11,18 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL,
   withCredentials: true,
 });
+
+api.interceptors.response.use(
+  (r) => r,
+  (error) => {
+    if (isAxiosError(error)) {
+      if (error.response?.status == 401) {
+        localStorage.removeItem("user");
+      }
+    }
+    return error;
+  },
+);
 
 export const waitForSocketConnection = (socket: WebSocket) => {
   return new Promise<void>((resolve, reject) => {
