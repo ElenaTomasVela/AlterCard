@@ -443,6 +443,10 @@ export const WaitingRoom = () => {
     if (room.users.length < 2) {
       toast({ description: "You need at least 2 players to start a game!" });
     }
+
+    if (room.users.length > 15) {
+      toast({ description: "You can't have more than 15 players in a game!" });
+    }
     socket.send(JSON.stringify({ action: "start" }));
   };
 
