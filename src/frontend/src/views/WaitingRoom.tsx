@@ -38,6 +38,11 @@ import { Command, CommandItem } from "@/components/ui/command";
 import { CommandList } from "cmdk";
 import { Separator } from "@/components/ui/separator";
 import ClipboardButton from "@/components/ui/clipboard";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const Player = ({
   player,
@@ -172,7 +177,7 @@ function HouseRuleSelect({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="justify-between"
+            className="justify-between group"
             size="sm"
             id={label}
             disabled={disable}
@@ -185,7 +190,10 @@ function HouseRuleSelect({
                   | StackDrawHouseRule
               ]) ||
               "None"}
-            <Icon icon="lucide:chevron-down" />
+            <Icon
+              icon="lucide:chevron-right"
+              className="group-radix-state-open:rotate-90 transition-all"
+            />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="p-2 w-fit">
@@ -462,19 +470,36 @@ export const WaitingRoom = () => {
           <H1>Waiting Room</H1>
           <ClipboardButton toCopy={location.href} />
         </div>
-        <div className="lg:flex gap-10 justify-between flex-wrap">
-          <div className="flex-1">
-            <H2 className="font-normal">Current Players</H2>
-            <div className="flex flex-col p-2">
-              {room?.users &&
-                room.users.map((p, index) => <Player player={p} key={index} />)}
-            </div>
-          </div>
+        <div className="flex flex-col lg:flex-row gap-10 justify-between flex-wrap">
+          <Collapsible
+            className="flex-1 flex flex-col shrink-0 overflow-hidden"
+            defaultOpen={true}
+          >
+            <CollapsibleTrigger className="group flex items-center gap-5 bg-white z-10 border-b pb-3">
+              <H2 className="font-normal">Current Players</H2>
+              <Icon
+                className="group-radix-state-open:rotate-90 size-5 transition-all"
+                icon="lucide:chevron-right"
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent
+              className="relative flex-1 overflow-auto lg:h-full animate-in slide-in-from-top
+              radix-state-closed:animate-out radix-state-closed:slide-out-to-top border rounded-b-xl
+              border-t-0"
+            >
+              <div className="lg:absolute size-full flex flex-col pr-5 p-2">
+                {room?.users &&
+                  room.users
+                    .fill(room.users[0])
+                    .map((p, index) => <Player player={p} key={index} />)}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
           <div className="lg:flex justify-between flex-wrap flex-1 basis-2/5 gap-5">
             <div className="">
               <H2 className="font-normal">Choose your House Rules</H2>
               <div className="grid gap-3 md:px-5 py-3 grid-cols-2 w-full">
-                <div className="grid grid-cols-subgrid col-span-2 gap-2">
+                <div className="grid grid-cols-subgrid col-span-2 gap-2 overflow:hidden">
                   <HouseRuleSelect
                     disable={room?.host.username !== user}
                     noneOption
