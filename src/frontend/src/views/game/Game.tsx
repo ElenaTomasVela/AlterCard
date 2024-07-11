@@ -31,6 +31,7 @@ import {
 import { useContext, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { PlayableCard, Player, PromptDisplay } from "./GameComponents";
+import Chat from "@/components/Chat";
 
 export const Game = () => {
   const [game, setGame] = useState<IGame>();
@@ -111,6 +112,15 @@ export const Game = () => {
         action: GameAction.accuse,
         data: player.user._id,
       }),
+    );
+  };
+
+  const sendChatMessage = async (message: string) => {
+    socket?.send(
+      JSON.stringify({
+        action: GameAction.chat,
+        data: message,
+      } as IGameMessage),
     );
   };
 
@@ -244,7 +254,9 @@ export const Game = () => {
           });
         break;
       case GameActionServer.refreshDeck:
+        break;
       case GameActionServer.eliminate:
+        break;
       case GameActionServer.swapHands:
         if (
           msgObject.data == null ||
@@ -519,6 +531,18 @@ export const Game = () => {
           </div>
           <div className="h-48 bg-gray-200 rounded-lg animate-pulse ml-1/3" />
         </>
+      )}
+      {socket && (
+        <Chat<IGameServerMessage>
+          socket={socket}
+          onSend={sendChatMessage}
+          parserFunction={(str) => JSON.parse(str)}
+          messageMatcher={(m) => m.action == GameActionServer.chat}
+          dataExtractFunction={(m) => ({
+            senderName: m.user as string,
+            message: m.data as string,
+          })}
+        />
       )}
     </div>
   );

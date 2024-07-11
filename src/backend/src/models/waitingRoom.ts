@@ -23,6 +23,7 @@ export enum WaitingRoomAction {
   ready = "ready",
   setDeck = "setDeck",
   setRule = "setRule",
+  chat = "chat",
 }
 
 export enum WaitingRoomServerAction {
@@ -36,6 +37,7 @@ export enum WaitingRoomServerAction {
   error = "error",
   setDeck = "setDeck",
   setRule = "setRule",
+  chat = "chat",
 }
 
 export enum WaitingRoomError {

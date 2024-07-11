@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const requiredString = (req?: string) => {
+export const requiredString = (req?: string) => {
   return z
     .string()
     .trim()
@@ -159,6 +159,7 @@ export enum WaitingRoomAction {
   ready = "ready",
   setDeck = "setDeck",
   setRule = "setRule",
+  chat = "chat",
 }
 
 export enum WaitingRoomServerAction {
@@ -172,6 +173,7 @@ export enum WaitingRoomServerAction {
   error = "error",
   setDeck = "setDeck",
   setRule = "setRule",
+  chat = "chat",
 }
 
 export interface IWaitingRoomMessage {
@@ -198,6 +200,7 @@ export enum GameAction {
   playCard = "playCard",
   drawCard = "drawCard",
   viewHand = "viewHand",
+  chat = "chat",
 }
 
 export enum GameActionServer {
@@ -214,6 +217,7 @@ export enum GameActionServer {
   refreshDeck = "refreshDeck",
   eliminate = "eliminate",
   swapHands = "swapHands",
+  chat = "chat",
 }
 
 export enum GamePromptType {

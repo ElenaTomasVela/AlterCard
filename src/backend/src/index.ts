@@ -393,6 +393,17 @@ export const app = new Elysia()
                 );
 
                 break;
+              case WaitingRoomAction.chat:
+                if (message.data)
+                  serverInstance?.publish(
+                    ws.data.params.id,
+                    JSON.stringify(<IWaitingRoomServerMessage>{
+                      action: WaitingRoomServerAction.chat,
+                      data: message.data?.toString(),
+                      user: ws.data.user.username,
+                    }),
+                  );
+                break;
               default:
                 break;
             }
@@ -528,6 +539,17 @@ export const app = new Elysia()
                     data: cards,
                   }),
                 );
+                break;
+              case GameAction.chat:
+                if (message.data)
+                  serverInstance?.publish(
+                    ws.data.params.id,
+                    JSON.stringify(<IGameServerMessage>{
+                      action: GameActionServer.chat,
+                      data: message.data?.toString(),
+                      user: ws.data.user.username,
+                    }),
+                  );
                 break;
             }
 

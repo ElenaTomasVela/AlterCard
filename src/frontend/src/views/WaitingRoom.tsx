@@ -43,6 +43,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import Chat from "@/components/Chat";
 
 const Player = ({
   player,
@@ -362,7 +364,6 @@ export const WaitingRoom = () => {
           break;
         case "removeRule":
           if (typeof msgObject.data !== "string") return;
-          console.log("removing");
           removeHouseRule(msgObject.data as HouseRule);
           break;
         case WaitingRoomServerAction.setDeck:
@@ -441,6 +442,15 @@ export const WaitingRoom = () => {
     );
   };
 
+  const sendChatMessage = async (message: string) => {
+    socket?.send(
+      JSON.stringify({
+        action: WaitingRoomAction.chat,
+        data: message,
+      } as IWaitingRoomMessage),
+    );
+  };
+
   const startGame = () => {
     if (!socket || !user) return;
 
@@ -489,9 +499,9 @@ export const WaitingRoom = () => {
             >
               <div className="lg:absolute size-full flex flex-col pr-5 p-2">
                 {room?.users &&
-                  room.users
-                    .fill(room.users[0])
-                    .map((p, index) => <Player player={p} key={index} />)}
+                  room.users.map((p, index) => (
+                    <Player player={p} key={index} />
+                  ))}
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -612,6 +622,18 @@ export const WaitingRoom = () => {
           )}
         </span>
       </div>
+      {socket && (
+        <Chat<IWaitingRoomServerMessage>
+          socket={socket}
+          onSend={sendChatMessage}
+          messageMatcher={(m) => m.action === WaitingRoomServerAction.chat}
+          parserFunction={(m) => JSON.parse(m)}
+          dataExtractFunction={(m) => ({
+            message: m.data as string,
+            senderName: m.user as string,
+          })}
+        />
+      )}
     </>
   );
 };

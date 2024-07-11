@@ -16,6 +16,7 @@ export enum GameAction {
   playCard = "playCard",
   drawCard = "drawCard",
   viewHand = "viewHand",
+  chat = "chat",
 }
 
 export enum GameActionServer {
@@ -32,6 +33,7 @@ export enum GameActionServer {
   refreshDeck = "refreshDeck",
   eliminate = "eliminate",
   swapHands = "swapHands",
+  chat = "chat",
 }
 
 export enum GamePromptType {
