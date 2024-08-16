@@ -1,4 +1,4 @@
-# tfg-card-game
+# AlterUno
 
 A card game with multiplayer support with WebSockets, made with
 Bun, React and Elysia.
