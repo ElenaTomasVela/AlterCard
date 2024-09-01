@@ -98,7 +98,7 @@ export default function Chat<T>({
   return (
     <Collapsible
       className="lg:bottom-12 bottom-6 left-0 lg:px-12 px-6 fixed w-full
-        lg:w-2/5 flex flex-col-reverse group h-1/2 overflow-hidden z-10"
+        lg:w-2/5 flex flex-col-reverse group overflow-hidden z-10 pointer-events-none"
       onOpenChange={(o) => setReadStatus(o ? true : readStatus)}
     >
       <div className="flex z-10 overflow-hidden flex-shrink-0">
@@ -106,7 +106,8 @@ export default function Chat<T>({
           <Button
             variant="outline"
             type="button"
-            className="size-12 rounded-r-full bg-white z-10 shadow-md bottom-0 p-0 -mr-12 aspect-square"
+            className="size-12 rounded-r-full bg-white z-10 shadow-md bottom-0 p-0 -mr-12 aspect-square
+            pointer-events-auto"
           >
             {readStatus ? (
               <Icon icon="lucide:message-circle" className="size-6" />
@@ -122,7 +123,7 @@ export default function Chat<T>({
           onSubmit={form.handleSubmit(onSubmit)}
           className="h-12 animate-in slide-in-from-left flex
             group-radix-state-closed:w-0 group-radix-state-closed:pl-0 w-full left-0 bottom-0 overflow-hidden
-            focus:border-primary transition-all delay-100"
+            focus:border-primary transition-all delay-100 pointer-events-auto"
         >
           <Input
             {...form.register("message")}
@@ -143,7 +144,7 @@ export default function Chat<T>({
         ref={chatEl}
         className="border bg-white rounded-lg flex-1 basis-[50vh]
           animate-in slide-in-from-bottom radix-state-closed:animate-out radix-state-closed:slide-out-to-bottom -z-10
-        break-words overflow-scroll"
+        break-words overflow-scroll pointer-events-auto"
       >
         <div className="flex flex-col p-4 justify-end">
           {messages.map((m, index) => (
