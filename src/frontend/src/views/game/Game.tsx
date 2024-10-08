@@ -129,7 +129,23 @@ export const Game = () => {
     switch (msgObject.action) {
       case GameActionServer.draw: {
         const player = game?.players.find((p) => p.user._id == msgObject.user);
-        if (!player || typeof msgObject.data !== "number") return;
+        if (
+          !player ||
+          msgObject.data == null ||
+          typeof msgObject.data !== "number"
+        )
+          return;
+
+        // Update draw pile contents
+        setGame((g) => {
+          if (!g) return;
+          return {
+            ...g,
+            drawPile: {
+              length: g.drawPile.length - (msgObject.data! as number),
+            },
+          };
+        });
 
         if (player.user.username == user) {
           socket?.send(
@@ -254,6 +270,11 @@ export const Game = () => {
           });
         break;
       case GameActionServer.refreshDeck:
+        setGame((g) => {
+          if (!g || typeof msgObject.data !== "number") return;
+
+          return { ...g, drawPile: { length: msgObject.data } };
+        });
         break;
       case GameActionServer.eliminate:
         break;
